@@ -14,7 +14,7 @@
 
 using namespace std;
 
-void clientConnection(User user);
+void clientConnection(User &user);
 void tcpCommunication(int tcpListenfd, int connfd);
 void udpCommunication(int udpListenfd, struct sockaddr_in clientAddr, socklen_t clientAddrLen);
 
@@ -48,7 +48,7 @@ int main() {
     udpThread.join();
 }
 
-void clientConnection(User user) {
+void clientConnection(User &user) {
     int n;
     char buff[1000];
     memset(buff, 0, 1000);
@@ -71,7 +71,7 @@ void tcpCommunication(int tcpListenfd, int connfd) {
         users.push_back(User(connfd, "tcp"));
         users[users.size() - 1].address = clientAddr;
 
-        thread clientThread(clientConnection, users[users.size() - 1]);
+        thread clientThread(clientConnection, ref(users[users.size() - 1]));
         clientThread.detach();
     }
 }
@@ -88,7 +88,9 @@ void udpCommunication(int udpListenfd, struct sockaddr_in clientAddr, socklen_t 
         
         int i;
         for (i = 0; i < users.size(); i++) {
-            if (users[i].address.sin_addr.s_addr == clientAddr.sin_addr.s_addr) {
+            bool isIpEqual = users[i].address.sin_addr.s_addr == clientAddr.sin_addr.s_addr;
+            bool isPortEqual = users[i].address.sin_port == clientAddr.sin_port;
+            if (isIpEqual && isPortEqual) {
                 isNewUser = false;
                 break;
             }

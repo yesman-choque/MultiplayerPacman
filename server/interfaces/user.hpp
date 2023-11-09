@@ -11,11 +11,14 @@ struct User {
     string protocol;
     bool isLogged;
     bool isPlaying;
+    bool isHost;
     struct sockaddr_in address;
     int socket;
 
     User(int socket, string protocol) {
         this->isLogged = false;
+        this->isPlaying = false;
+        this->isHost = false;
         this->socket = socket;
         this->protocol = protocol;
     }

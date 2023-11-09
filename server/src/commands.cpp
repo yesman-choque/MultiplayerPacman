@@ -58,14 +58,49 @@ void handleRequest(char *buff, User &user, vector<User> &users) {
             cout << "Port: " << ntohs(user.address.sin_port) << endl;
 
             string IP = inet_ntoa(user.address.sin_addr);
-            string port = to_string(ntohs(user.address.sin_port));
+            string port = to_string(44888);
 
             string message = "connection start-ok " + IP + " " + port;
             user.isPlaying = true;
+            user.isHost = true;
             transmit(user, message);
+        
+        } else if (method == "challenge") { 
+        
+            string opponent;
+            iss >> opponent;
+
+            bool found = false;
+            int i;
+            for (i = 0; i < users.size(); i++) {
+                if (users[i].username == opponent && users[i].isLogged && users[i].isPlaying && users[i].isHost) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                string message = "connection challenge-nok";
+                transmit(user, message);
+                return;
+            }
+
+            string ip = inet_ntoa(users[i].address.sin_addr);
+            string port = to_string(44888);
+
+            string message = "connection challenge-ok " + ip + " " + port;
+            user.isPlaying = true;
+
+            transmit(user, message);
+
+        } else {
+            cout << "Invalid method" << endl;
         }
+    
     } else {
         cout << "Invalid type" << endl;
+        string message = "Invalid type";
+        transmit(user, message);
     }
 }
 

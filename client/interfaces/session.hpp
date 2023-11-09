@@ -12,9 +12,12 @@ struct session {
     string password;
     bool isLogged;
     bool isPlaying;
-    
+
     int serverSocket;
     struct sockaddr_in serverAddress;
-    string protocol;
+    
+    int gameSocket;
+    struct sockaddr_in gameAddress;
 
+    string protocol;
 };
