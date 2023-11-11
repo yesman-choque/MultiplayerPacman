@@ -12,8 +12,10 @@ struct User {
     bool isLogged;
     bool isPlaying;
     bool isHost;
+
     struct sockaddr_in address;
     int socket;
+    int gamePort;
 
     User(int socket, string protocol) {
         this->isLogged = false;

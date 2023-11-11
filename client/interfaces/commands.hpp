@@ -5,4 +5,4 @@ using namespace std;
 
 #define MAXLINE 4096
 
-void handleRequest(string line, Session &session);
+int handleRequest(string line, Session &session);

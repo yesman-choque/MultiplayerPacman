@@ -4,5 +4,5 @@
 
 using namespace std;
 
-void initializeGame(Session &session, string ip, string port);
+void initializeGame(Session &session);
 void joinGame(Session &session, string ip, string port);

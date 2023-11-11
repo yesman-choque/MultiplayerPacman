@@ -1,9 +1,9 @@
 #include <string>
-#include <vector>
+#include <list>
 #include "./user.hpp"
 
 using namespace std;
 
-void handleRequest(char *buff, User &user, vector<User> &users);
+void handleRequest(char *buff, User &user, list<User> &users);
 void signin(User &user);
-void login(User &user, vector<User> &users);
+void login(User &user, list<User> &users);

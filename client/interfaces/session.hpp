@@ -16,6 +16,7 @@ struct session {
     int serverSocket;
     struct sockaddr_in serverAddress;
     
+    uint16_t gamePort;
     int gameSocket;
     struct sockaddr_in gameAddress;
 

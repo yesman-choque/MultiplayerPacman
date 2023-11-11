@@ -7,34 +7,62 @@
 #include "../interfaces/commands.hpp"
 
 void transmit(User &user, string message) {
+
+    cout << "entrei aqui" << endl;
+    cout << user.protocol << endl;
+
     if (user.protocol == "tcp")
         write(user.socket, message.data(), message.size());
     else if (user.protocol == "udp")
         sendto(user.socket, message.data(), message.size(), 0, (struct sockaddr *)&user.address, sizeof(user.address));
 }
 
-void handleRequest(char *buff, User &user, vector<User> &users) {
+void handleRequest(char *buff, User &user, list<User> &users) {
+    cout << buff << endl;
+    cout << ntohs(user.address.sin_port) << endl;
+
     istringstream iss(buff);
     string type;
 
     iss >> type;
 
-    cout << type << endl;
-
     if (type == "auth") {
 
         string method;
         iss >> method;
-        cout << method << endl;
 
         if (method == "signin") {
             iss >> user.username >> user.password;
             signin(user);
 
         } else if (method == "login") {
+            cout << "to em login" << endl;
 
             iss >> user.username >> user.password;
+        
             login(user, users);
+
+        } else if (method == "quit") { 
+            if (user.isPlaying) {
+                string message = "auth quit-nok";
+                transmit(user, message);
+                return;
+            }
+
+            string message = "auth quit-ok";
+            transmit(user, message);
+            close(user.socket);
+            auto it = users.begin();
+            while (it != users.end()) {
+                bool isIpEqual = it->address.sin_addr.s_addr == user.address.sin_addr.s_addr;
+                bool isPortEqual = it->address.sin_port == user.address.sin_port;
+                if (isIpEqual && isPortEqual) {
+                    it = users.erase(it);
+                    break;
+                } else {
+                    it++;
+                }
+            }
 
         } else {
             cout << "Invalid method" << endl;
@@ -43,9 +71,10 @@ void handleRequest(char *buff, User &user, vector<User> &users) {
     } else if (type == "connection") {
         if (!user.isLogged) return;
 
-        cout << "connection type" << endl;
         string method;
         iss >> method;
+
+        cout << "jamaica" << endl;
 
         if (method == "start") {
             if (user.isPlaying) {
@@ -54,15 +83,19 @@ void handleRequest(char *buff, User &user, vector<User> &users) {
                 return;
             }
 
-            cout << "IP: " << inet_ntoa(user.address.sin_addr) << endl;
-            cout << "Port: " << ntohs(user.address.sin_port) << endl;
-
-            string IP = inet_ntoa(user.address.sin_addr);
-            string port = to_string(44888);
-
-            string message = "connection start-ok " + IP + " " + port;
+            string message = "connection start-ok";
             user.isPlaying = true;
             user.isHost = true;
+        
+            transmit(user, message);
+
+        } else if (method == "gamestart") {
+
+            string port;
+            iss >> port;
+
+            user.gamePort = stoi(port);
+            string message = "connection gamestart-ok";        
             transmit(user, message);
         
         } else if (method == "challenge") { 
@@ -72,8 +105,12 @@ void handleRequest(char *buff, User &user, vector<User> &users) {
 
             bool found = false;
             int i;
-            for (i = 0; i < users.size(); i++) {
-                if (users[i].username == opponent && users[i].isLogged && users[i].isPlaying && users[i].isHost) {
+
+
+            list<User>::iterator it;
+
+            for (it = users.begin(); it != users.end(); it++) {
+                if (it->username == opponent && it->isLogged && it->isPlaying && it->isHost) {
                     found = true;
                     break;
                 }
@@ -85,17 +122,36 @@ void handleRequest(char *buff, User &user, vector<User> &users) {
                 return;
             }
 
-            string ip = inet_ntoa(users[i].address.sin_addr);
-            string port = to_string(44888);
+            string ip = inet_ntoa(it->address.sin_addr);
+            string port = to_string(it->gamePort);
 
             string message = "connection challenge-ok " + ip + " " + port;
             user.isPlaying = true;
 
             transmit(user, message);
 
+        } else if (method == "logout") {
+            if (!user.isLogged || user.isPlaying) {
+                string message = "connection logout-nok";
+                transmit(user, message);
+                return;
+            }
+
+            user.isLogged = false;
+            user.isPlaying = false;
+            user.isHost = false;
+
+            string message = "connection logout-ok";
+            transmit(user, message);
+
+        
         } else {
             cout << "Invalid method" << endl;
         }
+    
+    
+    
+    
     
     } else {
         cout << "Invalid type" << endl;
@@ -139,7 +195,8 @@ void signin(User &user) {
     transmit(user, message);
 }
 
-void login(User &user, vector<User> &users) {
+void login(User &user, list<User> &users) {
+
     ifstream usersFile("users.txt");
     string line;
 
@@ -163,6 +220,8 @@ void login(User &user, vector<User> &users) {
         transmit(user, message);
 
     } else {
+
+        cout << "porra cu karalho" << endl;
 
         bool userAlreadyLogged = false;
 

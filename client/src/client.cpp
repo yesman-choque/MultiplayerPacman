@@ -35,6 +35,7 @@ int main(int argc, char **argv) {
 
     Session session;
     session.isLogged = false;
+    session.isPlaying = false;
     session.serverAddress = servaddr;
 
     if (strcmp(argv[3], "tcp") == 0) {
@@ -44,10 +45,10 @@ int main(int argc, char **argv) {
         connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
         string line;
 
-        while (getline(cin, line) && line != "tchau") {
-            handleRequest(line, session);
+        while (getline(cin, line)) {
+            int status = handleRequest(line, session);
+            if (status) break;
         }
-
     } else if (strcmp(argv[3], "udp") == 0) {
         sockfd = socket(AF_INET, SOCK_DGRAM, 0);
         session.serverSocket = sockfd;
@@ -56,8 +57,9 @@ int main(int argc, char **argv) {
 
         cout << "gg" << endl;
 
-        while (getline(cin, line) && line != "tchau") {
-            handleRequest(line, session);
+        while (getline(cin, line)) {
+            int status = handleRequest(line, session);
+            if (status) break;
         }
     }
 }

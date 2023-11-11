@@ -7,17 +7,16 @@
 #include "../interfaces/game.hpp"
 
 void clientConnection(int listenfd);
+void gameLoop(int connfd, int listenfd, Session &session);
 
-void initializeGame(Session &session, string ip, string port) {
+void initializeGame(Session &session) {
     int listenfd, connfd;
-    struct sockaddr_in servaddr, clientAddr;
-
-    cout << "IP: " << ip << endl;
-    cout << "Port: " << port << endl;
+    struct sockaddr_in servaddr;
 
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(stoi(port));
+    servaddr.sin_port = htons(0);
+
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -29,17 +28,16 @@ void initializeGame(Session &session, string ip, string port) {
     int l = listen(listenfd, 1);
     if (l == -1) cerr << "listen failed" << endl;
 
+    struct sockaddr_in temp_addr;
+    socklen_t temp_len = sizeof(temp_addr);
+    getsockname(listenfd, (struct sockaddr *)&temp_addr, &temp_len);
+    cout << "Server listening on a random port: " << ntohs(temp_addr.sin_port) << endl;
 
-    socklen_t clientAddrLen = sizeof(clientAddr);
+    session.gamePort = ntohs(temp_addr.sin_port);
 
-    for (;;) {
-        connfd = accept(listenfd, (struct sockaddr *)&clientAddr, &clientAddrLen);
-        cout << "TCP Connection Open" << endl;
-        session.gameSocket = connfd;
+    thread gameLoopThread(gameLoop, connfd, listenfd, ref(session));
+    gameLoopThread.detach();
 
-        thread clientConnectionThread(clientConnection, connfd);
-        clientConnectionThread.detach();
-    }
 }
 
 void joinGame(Session &session, string ip, string port) {
@@ -64,6 +62,21 @@ void joinGame(Session &session, string ip, string port) {
 
     thread clientConnectionThread(clientConnection, sockfd);
     clientConnectionThread.detach();
+}
+
+void gameLoop(int connfd, int listenfd, Session &session) {
+    struct sockaddr_in clientAddr;
+    socklen_t clientAddrLen = sizeof(clientAddr);
+
+    for (;;) {
+        connfd = accept(listenfd, (struct sockaddr *)&clientAddr, &clientAddrLen);
+        cout << "TCP Connection Open" << endl;
+
+        session.gameSocket = connfd;
+
+        thread clientConnectionThread(clientConnection, connfd);
+        clientConnectionThread.detach();
+    }
 }
 
 void clientConnection(int listenfd) {

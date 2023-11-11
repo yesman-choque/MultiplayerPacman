@@ -25,7 +25,7 @@ void transmit(Session &session, string message) {
     }
 }
 
-void handleRequest(string line, Session &session) {
+int handleRequest(string line, Session &session) {
     istringstream request(line);
     char recvline[MAXLINE];
 
@@ -41,12 +41,12 @@ void handleRequest(string line, Session &session) {
         login(session);
 
     } else if (command == "inicia") {
-        if (!session.isLogged) return;
+        if (!session.isLogged) return 0;
         startgame(session);
 
 
     } else if (command == "desafio") {
-        if (!session.isLogged) return;
+        if (!session.isLogged) return 0;
 
         string opponent;
         request >> opponent;
@@ -61,6 +61,44 @@ void handleRequest(string line, Session &session) {
         cout << session.gameSocket << endl;
 
         write(session.gameSocket, movement.data(), movement.size());
+
+    } else if (command == "sai") {
+        if (!session.isLogged) return 0;
+        if (session.isPlaying) return 0;
+
+        string message = "connection logout";
+        transmit(session, message);
+
+        char recvline[MAXLINE];
+        int n;
+        n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
+        recvline[n] = 0;
+
+        string response(recvline);
+        if (response == "connection logout-ok") {
+            cout << "User has logged out" << endl;
+            session.isLogged = false;
+            return 0;
+        } else if (response == "connection logout-nok") {
+            cout << "User has not logged out" << endl;
+        }
+
+    } else if (command == "tchau") { 
+        string message = "auth quit";
+        transmit(session, message);
+
+        char recvline[MAXLINE];
+        int n;
+        n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
+        recvline[n] = 0;
+
+        string response(recvline);
+        if (response == "auth quit-ok") {
+            cout << "User has quit" << endl;
+            return 1;
+        } else if (response == "auth quit-nok") {
+            cout << "User has not quit" << endl;
+        }
     } else {
         write(session.serverSocket, line.data(), line.size());
 
@@ -72,7 +110,7 @@ void handleRequest(string line, Session &session) {
 
         if (n == 0) {
             cout << "Server is not responding" << endl;
-            return;
+            return 0;
         } else {
             cout << "Server responds" << endl;
 
@@ -84,6 +122,8 @@ void handleRequest(string line, Session &session) {
             cout << response << endl;
         }
     }
+
+    return 0;
 }
 
 void singup(Session &session) {
@@ -133,7 +173,6 @@ void startgame(Session &session) {
 
     transmit(session, message);
     n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
-
     recvline[n] = 0;
     string response(recvline);
 
@@ -142,18 +181,21 @@ void startgame(Session &session) {
         return;
     }
 
-    istringstream iss(response);
-    string type;
-    string method;
-    string ip;
-    string port;
-    iss >> type >> method >> ip >> port;
+    thread initializeGameThread(initializeGame, ref(session));
+    initializeGameThread.join();
 
-    cout << "IP: " << ip << endl;
-    cout << "Port: " << port << endl;
+    message = "connection gamestart " + to_string(session.gamePort);
+    cout << message << endl;
+    transmit(session, message);
 
-    thread initializeGameThread(initializeGame, ref(session), ip, port);
-    initializeGameThread.detach();
+    n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
+    recvline[n] = 0;
+
+    string response2(recvline);
+    if (response2 == "connection gamestart-nok") {
+        cout << "Game has not started" << endl;
+        return;
+    }
 }
 
 void challenge(Session &session, string opponent) {
