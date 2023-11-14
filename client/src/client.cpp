@@ -47,7 +47,10 @@ int main(int argc, char **argv) {
 
         while (getline(cin, line)) {
             int status = handleRequest(line, session);
-            if (status) break;
+            if (status) {
+                close(sockfd);
+                break;
+            };
         }
     } else if (strcmp(argv[3], "udp") == 0) {
         sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -55,11 +58,12 @@ int main(int argc, char **argv) {
         session.protocol = "udp";
         string line;
 
-        cout << "gg" << endl;
-
         while (getline(cin, line)) {
             int status = handleRequest(line, session);
-            if (status) break;
+            if (status) {
+                close(sockfd);
+                break;
+            };
         }
     }
 }

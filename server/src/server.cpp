@@ -42,13 +42,11 @@ int main() {
     thread tcpThread(tcpCommunication, tcpListenfd);
     thread udpThread(udpCommunication, udpListenfd);
 
-    tcpThread.join();
+    tcpThread.detach();
     udpThread.join();
 }
 
 void clientConnection(User &client) {
-    cout << "entrei na função" << endl;
-
     int n;
     char buff[1000];
     memset(buff, 0, 1000);
@@ -77,7 +75,7 @@ void tcpCommunication(int tcpListenfd) {
     }
 }
 
-void udpClientConnection(int udpListenfd, char* buff, struct sockaddr_in clientAddr, socklen_t clientAddrLen) {
+void udpClientConnection(int udpListenfd, string message, struct sockaddr_in clientAddr, socklen_t clientAddrLen) {
     cout << "UDP Connection Open" << endl;
     bool isNewUser = true;
 
@@ -98,12 +96,10 @@ void udpClientConnection(int udpListenfd, char* buff, struct sockaddr_in clientA
     if (isNewUser) {
         users.push_back(User(udpListenfd, "udp"));
         users.back().address = clientAddr;
-        handleRequest(buff, users.back(), users);
+        handleRequest(message.data(), users.back(), users);
     } else {
-        handleRequest(buff, *it, users);
+        handleRequest(message.data(), *it, users);
     }
-
-    memset(buff, 0, 1000);
 }
 
 void udpCommunication(int udpListenfd) {
@@ -115,8 +111,14 @@ void udpCommunication(int udpListenfd) {
     socklen_t clientAddrLen = sizeof(clientAddr);
 
     while ((n = recvfrom(udpListenfd, buff, 1000, 0, (struct sockaddr *) &clientAddr, (socklen_t *)&clientAddrLen)) > 0) {
+        cout << "recebi mensagem" << endl;
+        
         buff[n] = 0;
-        thread udpClientConnectionThread(udpClientConnection, udpListenfd, buff, clientAddr, clientAddrLen);
+        string message(buff);
+
+        thread udpClientConnectionThread(udpClientConnection, udpListenfd, message, clientAddr, clientAddrLen);
         udpClientConnectionThread.detach();
+
+        memset(buff, 0, 1000);
     }
 }

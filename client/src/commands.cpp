@@ -10,6 +10,9 @@
 #include <poll.h>
 #include <thread>
 
+#include <chrono>
+using namespace chrono;
+
 #define MAXLINE 4096
 
 void singup(Session &session);
@@ -21,6 +24,7 @@ void transmit(Session &session, string message) {
     if (session.protocol == "tcp") {
         write(session.serverSocket, message.data(), message.size());
     } else if (session.protocol == "udp") {
+        cout << "sou cliente udp" << endl;
         sendto(session.serverSocket, message.data(), message.size(), 0, (struct sockaddr *)&session.serverAddress, sizeof(session.serverAddress));
     }
 }
@@ -99,6 +103,26 @@ int handleRequest(string line, Session &session) {
         } else if (response == "auth quit-nok") {
             cout << "User has not quit" << endl;
         }
+    
+    } else if (command == "atraso") {
+        if (!session.isLogged) return 0;
+        if (!session.isPlaying) return 0;
+
+        auto start = high_resolution_clock::now();
+
+        string message = "in-game delay";
+        write(session.gameSocket, message.data(), message.size());
+        char recvline[MAXLINE];
+        int n;
+        n = recvfrom(session.gameSocket, recvline, MAXLINE, 0, NULL, NULL);
+        recvline[n] = 0;
+
+        auto stop = high_resolution_clock::now();
+
+        auto duration = duration_cast<nanoseconds>(stop - start);
+
+        cout << "Delay: " << duration.count() / (double)1e6 << "ms" << endl;
+
     } else {
         write(session.serverSocket, line.data(), line.size());
 
@@ -181,6 +205,8 @@ void startgame(Session &session) {
         return;
     }
 
+    session.isPlaying = true;
+
     thread initializeGameThread(initializeGame, ref(session));
     initializeGameThread.join();
 
@@ -215,6 +241,8 @@ void challenge(Session &session, string opponent) {
         cout << "Challenge has not been sent" << endl;
         return;
     }
+
+    session.isPlaying = true;
 
     string type, connection, ip, port;
     istringstream iss(response);

@@ -10,11 +10,16 @@ void transmit(User &user, string message) {
 
     cout << "entrei aqui" << endl;
     cout << user.protocol << endl;
+    cout << user.socket << endl;
+    cout << ntohs(user.address.sin_port) << endl;
+    cout << user.address.sin_addr.s_addr << endl;
 
     if (user.protocol == "tcp")
         write(user.socket, message.data(), message.size());
-    else if (user.protocol == "udp")
+    else if (user.protocol == "udp") {
         sendto(user.socket, message.data(), message.size(), 0, (struct sockaddr *)&user.address, sizeof(user.address));
+        cout << "mano estou aqui" << endl;
+    }
 }
 
 void handleRequest(char *buff, User &user, list<User> &users) {
@@ -51,7 +56,6 @@ void handleRequest(char *buff, User &user, list<User> &users) {
 
             string message = "auth quit-ok";
             transmit(user, message);
-            close(user.socket);
             auto it = users.begin();
             while (it != users.end()) {
                 bool isIpEqual = it->address.sin_addr.s_addr == user.address.sin_addr.s_addr;
@@ -63,7 +67,6 @@ void handleRequest(char *buff, User &user, list<User> &users) {
                     it++;
                 }
             }
-
         } else {
             cout << "Invalid method" << endl;
         }
@@ -73,8 +76,6 @@ void handleRequest(char *buff, User &user, list<User> &users) {
 
         string method;
         iss >> method;
-
-        cout << "jamaica" << endl;
 
         if (method == "start") {
             if (user.isPlaying) {
@@ -143,16 +144,10 @@ void handleRequest(char *buff, User &user, list<User> &users) {
 
             string message = "connection logout-ok";
             transmit(user, message);
-
         
         } else {
             cout << "Invalid method" << endl;
         }
-    
-    
-    
-    
-    
     } else {
         cout << "Invalid type" << endl;
         string message = "Invalid type";
@@ -220,9 +215,6 @@ void login(User &user, list<User> &users) {
         transmit(user, message);
 
     } else {
-
-        cout << "porra cu karalho" << endl;
-
         bool userAlreadyLogged = false;
 
         for (User u : users) {
@@ -241,6 +233,7 @@ void login(User &user, list<User> &users) {
 
         user.isLogged = true;
         string message = "auth login-ok";
+
         transmit(user, message);
     }
 }

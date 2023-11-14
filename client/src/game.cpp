@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <thread>
+#include <sstream>
 
 #include "../interfaces/game.hpp"
 
@@ -37,7 +38,6 @@ void initializeGame(Session &session) {
 
     thread gameLoopThread(gameLoop, connfd, listenfd, ref(session));
     gameLoopThread.detach();
-
 }
 
 void joinGame(Session &session, string ip, string port) {
@@ -79,15 +79,31 @@ void gameLoop(int connfd, int listenfd, Session &session) {
     }
 }
 
-void clientConnection(int listenfd) {
+void clientConnection(int connfd) {
     int n;
     char buff[1000];
     memset(buff, 0, 1000);
-    while ((n = read(listenfd, buff, 1000)) > 0) {
+    while ((n = read(connfd, buff, 1000)) > 0) {
         buff[n] = 0;
 
         string message(buff);
+        
         cout << message << endl;
+
+        istringstream iss(buff);
+        
+        string type;
+        iss >> type;
+
+        if (type == "in-game") {
+            string method;
+            iss >> method;
+
+            if (method == "delay") {
+                string message = "in-game delay-ok";
+                write(connfd, message.data(), message.size());
+            }
+        }
 
         memset(buff, 0, 1000);
     }
