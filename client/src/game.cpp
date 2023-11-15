@@ -26,7 +26,7 @@ void initializeGame(Session &session) {
     int b = bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
     if (b == -1) cerr << "bind failed" << endl;
 
-    int l = listen(listenfd, 1);
+    int l = listen(listenfd, 10);
     if (l == -1) cerr << "listen failed" << endl;
 
     struct sockaddr_in temp_addr;
@@ -34,7 +34,7 @@ void initializeGame(Session &session) {
     getsockname(listenfd, (struct sockaddr *)&temp_addr, &temp_len);
     cout << "Server listening on a random port: " << ntohs(temp_addr.sin_port) << endl;
 
-    session.gamePort = ntohs(temp_addr.sin_port);
+    session.match.port = ntohs(temp_addr.sin_port);
 
     thread gameLoopThread(gameLoop, connfd, listenfd, ref(session));
     gameLoopThread.detach();
@@ -57,7 +57,7 @@ void joinGame(Session &session, string ip, string port) {
     int c = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
     if (c == -1) cerr << "connect failed" << endl;
 
-    session.gameSocket = sockfd;
+    session.match.connfd = sockfd;
     cout << "TCP Connection Open" << endl;
 
     thread clientConnectionThread(clientConnection, sockfd);
@@ -72,7 +72,7 @@ void gameLoop(int connfd, int listenfd, Session &session) {
         connfd = accept(listenfd, (struct sockaddr *)&clientAddr, &clientAddrLen);
         cout << "TCP Connection Open" << endl;
 
-        session.gameSocket = connfd;
+        session.match.connfd = connfd;
 
         thread clientConnectionThread(clientConnection, connfd);
         clientConnectionThread.detach();

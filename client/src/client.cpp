@@ -11,6 +11,8 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <vector>
+#include <thread>
 
 #include "../interfaces/commands.hpp"
 
@@ -18,14 +20,17 @@
 
 using namespace std;
 
-int main(int argc, char **argv) {
+void clientInput(Session &session, int sockfd);
+tuple<string, string> getOwnAdress(int sockfd);
+void heartbeat(Session &session);
 
+int main(int argc, char **argv) {
     if (argc != 4) {
         fprintf(stderr, "Uso: %s <Endereco IP|Nome> <Porta> <Protocolo>\n", argv[0]);
         exit(1);
     }
 
-    int sockfd;
+    int serverfd;
     struct sockaddr_in servaddr;
 
     bzero(&servaddr, sizeof(servaddr));
@@ -39,31 +44,107 @@ int main(int argc, char **argv) {
     session.serverAddress = servaddr;
 
     if (strcmp(argv[3], "tcp") == 0) {
-        sockfd = socket(AF_INET, SOCK_STREAM, 0);
-        session.serverSocket = sockfd;
+        serverfd = socket(AF_INET, SOCK_STREAM, 0);
+        session.serverSocket = serverfd;
         session.protocol = "tcp";
-        connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
-        string line;
+        connect(serverfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
-        while (getline(cin, line)) {
-            int status = handleRequest(line, session);
-            if (status) {
-                close(sockfd);
-                break;
-            };
-        }
+        thread heartbeatThread(heartbeat, ref(session));
+        heartbeatThread.detach();
+
+        thread clientInputThread(clientInput, ref(session), serverfd);
+        clientInputThread.join();
+
     } else if (strcmp(argv[3], "udp") == 0) {
-        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        session.serverSocket = sockfd;
+        serverfd = socket(AF_INET, SOCK_DGRAM, 0);
+        session.serverSocket = serverfd;
         session.protocol = "udp";
-        string line;
+        
+        thread clientInputThread(clientInput, ref(session), serverfd);
+        clientInputThread.join();
+    }
+}
 
-        while (getline(cin, line)) {
-            int status = handleRequest(line, session);
-            if (status) {
-                close(sockfd);
-                break;
-            };
+void heartbeat(Session &session) {
+    int serverfd;
+    struct sockaddr_in servaddr;
+
+    bzero(&servaddr, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(8081);
+    servaddr.sin_addr = session.serverAddress.sin_addr;
+
+    if (session.protocol == "tcp") {
+        serverfd = socket(AF_INET, SOCK_STREAM, 0);
+        connect(serverfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+
+        auto [ip, port] = getOwnAdress(session.serverSocket);
+
+        cout << "IP: " << ip << endl;
+        cout << "Port: " << port << endl;
+
+        string message = "security heartbeat " + ip + " " + port;
+
+        write(serverfd, message.data(), message.size());
+
+        vector<char> buff(1000, 0);
+        int n = read(serverfd, buff.data(), buff.size());
+        string response(buff.data());
+
+        if (response == "security heartbeat-ok") {
+            cout << "Connection Established" << endl;
+        } else {
+            cout << "Connection is Not Established" << endl;
+            exit(1);
+        }
+    } else if (session.protocol == "udp") {
+        serverfd = socket(AF_INET, SOCK_DGRAM, 0);
+    }    
+
+    vector<char> buff(1000, 0);
+
+    while (true) {
+        int n = read(serverfd, buff.data(), buff.size());
+        string message(buff.data());
+        
+        if (message == "connection heartbeat") {
+            //cout << "received a heartbeat" << endl;
+
+            string heartbeatResponse = "connection heartbeat-ok";
+            write(serverfd, heartbeatResponse.data(), heartbeatResponse.size());
         }
     }
+}
+
+void clientInput(Session &session, int sockfd) {
+    string line;
+    while (getline(cin, line)) {
+        int status = handleRequest(line, session);
+        if (status) {
+            close(sockfd);
+            return;
+        };
+    }
+}
+
+tuple<string, string> parseAddress(struct sockaddr_in address) {
+    char ip_str_result[INET_ADDRSTRLEN]; // INET_ADDRSTRLEN is the maximum length of an IPv4 address string
+    inet_ntop(AF_INET, &address, ip_str_result, sizeof(ip_str_result));
+
+    return make_tuple(string(ip_str_result), to_string(ntohs(address.sin_port)));
+}
+
+tuple<string, string> getOwnAdress(int sockfd) {
+    struct sockaddr_in temp_addr;
+    socklen_t temp_len = sizeof(temp_addr);
+    getsockname(sockfd, (struct sockaddr *)&temp_addr, &temp_len);
+
+    char ip_str_result[INET_ADDRSTRLEN]; // INET_ADDRSTRLEN is the maximum length of an IPv4 address string
+    inet_ntop(AF_INET, &temp_addr, ip_str_result, sizeof(ip_str_result));
+
+
+    string ip = inet_ntoa(temp_addr.sin_addr);
+    string port = to_string(ntohs(temp_addr.sin_port));
+
+    return make_tuple(ip, port);
 }

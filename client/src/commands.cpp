@@ -62,9 +62,7 @@ int handleRequest(string line, Session &session) {
         string movement;
         request >> movement;
 
-        cout << session.gameSocket << endl;
-
-        write(session.gameSocket, movement.data(), movement.size());
+        write(session.match.connfd, movement.data(), movement.size());
 
     } else if (command == "sai") {
         if (!session.isLogged) return 0;
@@ -108,13 +106,15 @@ int handleRequest(string line, Session &session) {
         if (!session.isLogged) return 0;
         if (!session.isPlaying) return 0;
 
+        cout << "atraso testing" << endl;
+
         auto start = high_resolution_clock::now();
 
         string message = "in-game delay";
-        write(session.gameSocket, message.data(), message.size());
+        write(session.match.connfd, message.data(), message.size());
         char recvline[MAXLINE];
         int n;
-        n = recvfrom(session.gameSocket, recvline, MAXLINE, 0, NULL, NULL);
+        n = recvfrom(session.match.connfd, recvline, MAXLINE, 0, NULL, NULL);
         recvline[n] = 0;
 
         auto stop = high_resolution_clock::now();
@@ -175,8 +175,7 @@ void login(Session &session) {
 
     transmit(session, message);
     char recvline[MAXLINE]; int n;
-    //n = read(session.serverSocket, recvline, MAXLINE);
-    n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
+    again: n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
 
     recvline[n] = 0;
     string response(recvline);
@@ -186,6 +185,8 @@ void login(Session &session) {
         session.isLogged = true;
     } else if (response == "auth login-nok") {
         cout << "Login is incorrect or user is already logged" << endl;
+    } else {
+        goto again;
     }
 }
 
@@ -210,7 +211,7 @@ void startgame(Session &session) {
     thread initializeGameThread(initializeGame, ref(session));
     initializeGameThread.join();
 
-    message = "connection gamestart " + to_string(session.gamePort);
+    message = "connection gamestart " + to_string(session.match.port);
     cout << message << endl;
     transmit(session, message);
 
@@ -236,6 +237,8 @@ void challenge(Session &session, string opponent) {
 
     recvline[n] = 0;
     string response(recvline);
+
+    cout << response << endl;
 
     if (response == "connection challenge-nok") {
         cout << "Challenge has not been sent" << endl;

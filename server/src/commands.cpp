@@ -7,7 +7,6 @@
 #include "../interfaces/commands.hpp"
 
 void transmit(User &user, string message) {
-
     cout << "entrei aqui" << endl;
     cout << user.protocol << endl;
     cout << user.socket << endl;
@@ -145,6 +144,19 @@ void handleRequest(char *buff, User &user, list<User> &users) {
             string message = "connection logout-ok";
             transmit(user, message);
         
+        } else {
+            cout << "Invalid method" << endl;
+        }
+    
+    
+    } else if (type == "security") {
+        string method;
+        iss >> method;
+
+        if (method == "heartbeat") {
+            string port = to_string(8081);
+            string message = "security heartbeat-ok " + port;
+            transmit(user, message);
         } else {
             cout << "Invalid method" << endl;
         }

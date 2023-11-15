@@ -5,20 +5,22 @@
 
 using namespace std;
 
-typedef struct session Session;
+struct Match {
+    uint16_t port;
+    int connfd;
+    struct sockaddr_in socket;
+};
 
-struct session {
+struct Session {
     string user;
     string password;
+
     bool isLogged;
     bool isPlaying;
 
+    string protocol;
     int serverSocket;
     struct sockaddr_in serverAddress;
-    
-    uint16_t gamePort;
-    int gameSocket;
-    struct sockaddr_in gameAddress;
 
-    string protocol;
+    Match match;
 };

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <thread>
+#include <chrono>
 #include <fstream>
 #include <sstream>
 
@@ -9,116 +10,76 @@
 #include <unistd.h>
 #include <vector>
 #include <list>
+#include <tuple>
 
 #include "../interfaces/commands.hpp"
 #include "../interfaces/user.hpp"
+#include "../interfaces/tcp.hpp"
+#include "../interfaces/udp.hpp"
+#include "../interfaces/heartbeat.hpp"
 
 using namespace std;
 
-void clientConnection(User &client);
-void tcpCommunication(int tcpListenfd);
-void udpCommunication(int udpListenfd);
-
 list<User> users;
 
+tuple<int, int> createSockets(int port);
+
 int main() {
-    int udpListenfd, tcpListenfd;
+    // Create TCP and UDP sockets on ports 8080 for the main 
+    // communication and 8081 for the heartbeat
+    auto [tcpfd, udpfd] = createSockets(8080);
+    auto [tcpfd_hb, udpfd_hb] = createSockets(8081);
 
-    struct sockaddr_in serverAddr;
+    // Start heartbeat thread
+    thread heartbeatThread(heartbeat, ref(users));
+    heartbeatThread.detach();
 
-    tcpListenfd = socket(AF_INET, SOCK_STREAM, 0);
-    udpListenfd = socket(AF_INET, SOCK_DGRAM, 0);
+    thread tcphbThread(tcphb, tcpfd_hb, ref(users));
+    tcphbThread.detach();
 
-    memset(&serverAddr, 0, sizeof(serverAddr));
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddr.sin_port = htons(8080);
-
-    bind(tcpListenfd, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
-    bind(udpListenfd, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
-
-    listen(tcpListenfd, 1);
-
-    thread tcpThread(tcpCommunication, tcpListenfd);
-    thread udpThread(udpCommunication, udpListenfd);
-
+    thread tcpThread(tcpCommunication, tcpfd, ref(users));
     tcpThread.detach();
+
+    thread udpThread(udpCommunication, udpfd, ref(users));
     udpThread.join();
 }
 
-void clientConnection(User &client) {
-    int n;
-    char buff[1000];
-    memset(buff, 0, 1000);
-    while ((n = read(client.socket, buff, 1000)) > 0) {
-        cout << n << endl;
-        buff[n] = 0;
-        handleRequest(buff, client, users);
-        memset(buff, 0, 1000);
+tuple<int, int> createSockets(int port) {
+    int udpfd, tcpfd;
+    struct sockaddr_in serverAddr;
+
+    tcpfd = socket(AF_INET, SOCK_STREAM, 0);
+    udpfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (tcpfd < 0 || udpfd < 0) {
+        cout << "Error creating socket" << endl;
+        exit(1);
     }
+
+    memset(&serverAddr, 0, sizeof(serverAddr));
+
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddr.sin_port = htons(port);
+
+    if (bind(tcpfd, (struct sockaddr *) &serverAddr, sizeof(serverAddr))) {
+        cout << "Error binding TCP socket" << endl;
+        exit(1);
+    }
+
+    if (bind(udpfd, (struct sockaddr *) &serverAddr, sizeof(serverAddr))) {
+        cout << "Error binding UDP socket" << endl;
+        exit(1);
+    }
+
+    if (listen(tcpfd, 5)) {
+        cout << "Error listening TCP socket" << endl;
+        exit(1);
+    }
+
+    return make_tuple(tcpfd, udpfd);
 }
 
-void tcpCommunication(int tcpListenfd) {
-    struct sockaddr_in clientAddr;
-    bzero(&clientAddr, sizeof(clientAddr));
-    socklen_t clientAddrLen = sizeof(clientAddr);
 
-    for (;;) {
-        int connfd = accept(tcpListenfd, (struct sockaddr *) &clientAddr, &clientAddrLen);
-        cout << "TCP Connection Open" << endl;
 
-        users.push_back(User(connfd, "tcp"));
-        users.back().address = clientAddr;
 
-        thread clientThread(clientConnection, ref(users.back()));
-        clientThread.detach();
-    }
-}
-
-void udpClientConnection(int udpListenfd, string message, struct sockaddr_in clientAddr, socklen_t clientAddrLen) {
-    cout << "UDP Connection Open" << endl;
-    bool isNewUser = true;
-
-    cout << clientAddr.sin_addr.s_addr << endl;
-    cout << ntohs(clientAddr.sin_port) << endl;
-
-    
-    list<User>::iterator it;
-    for (it = users.begin(); it != users.end(); it++) {
-        bool isIpEqual = it->address.sin_addr.s_addr == clientAddr.sin_addr.s_addr;
-        bool isPortEqual = it->address.sin_port == clientAddr.sin_port;
-        if (isIpEqual && isPortEqual) {
-            isNewUser = false;
-            break;
-        }
-    }
-
-    if (isNewUser) {
-        users.push_back(User(udpListenfd, "udp"));
-        users.back().address = clientAddr;
-        handleRequest(message.data(), users.back(), users);
-    } else {
-        handleRequest(message.data(), *it, users);
-    }
-}
-
-void udpCommunication(int udpListenfd) {
-    int n;
-    char buff[1000];
-
-    struct sockaddr_in clientAddr;
-    memset(&clientAddr, 0, sizeof(clientAddr));
-    socklen_t clientAddrLen = sizeof(clientAddr);
-
-    while ((n = recvfrom(udpListenfd, buff, 1000, 0, (struct sockaddr *) &clientAddr, (socklen_t *)&clientAddrLen)) > 0) {
-        cout << "recebi mensagem" << endl;
-        
-        buff[n] = 0;
-        string message(buff);
-
-        thread udpClientConnectionThread(udpClientConnection, udpListenfd, message, clientAddr, clientAddrLen);
-        udpClientConnectionThread.detach();
-
-        memset(buff, 0, 1000);
-    }
-}
