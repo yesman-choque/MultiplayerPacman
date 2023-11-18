@@ -1,10 +1,14 @@
-#include <sstream>
+#include "../interfaces/commands.hpp"
+
+#include <arpa/inet.h>
+#include <unistd.h>
+
 #include <fstream>
 #include <iostream>
-#include <unistd.h>
-#include <arpa/inet.h>
+#include <sstream>
 
-#include "../interfaces/commands.hpp"
+void authType(User &user, list<User> &users, istringstream &iss);
+void connectionType(User &user, list<User> &users, istringstream &iss);
 
 void transmit(User &user, string message) {
     cout << "entrei aqui" << endl;
@@ -16,7 +20,8 @@ void transmit(User &user, string message) {
     if (user.protocol == "tcp")
         write(user.socket, message.data(), message.size());
     else if (user.protocol == "udp") {
-        sendto(user.socket, message.data(), message.size(), 0, (struct sockaddr *)&user.address, sizeof(user.address));
+        sendto(user.socket, message.data(), message.size(), 0,
+               (struct sockaddr *)&user.address, sizeof(user.address));
         cout << "mano estou aqui" << endl;
     }
 }
@@ -30,126 +35,11 @@ void handleRequest(char *buff, User &user, list<User> &users) {
 
     iss >> type;
 
-    if (type == "auth") {
-
-        string method;
-        iss >> method;
-
-        if (method == "signin") {
-            iss >> user.username >> user.password;
-            signin(user);
-
-        } else if (method == "login") {
-            cout << "to em login" << endl;
-
-            iss >> user.username >> user.password;
-        
-            login(user, users);
-
-        } else if (method == "quit") { 
-            if (user.isPlaying) {
-                string message = "auth quit-nok";
-                transmit(user, message);
-                return;
-            }
-
-            string message = "auth quit-ok";
-            transmit(user, message);
-            auto it = users.begin();
-            while (it != users.end()) {
-                bool isIpEqual = it->address.sin_addr.s_addr == user.address.sin_addr.s_addr;
-                bool isPortEqual = it->address.sin_port == user.address.sin_port;
-                if (isIpEqual && isPortEqual) {
-                    it = users.erase(it);
-                    break;
-                } else {
-                    it++;
-                }
-            }
-        } else {
-            cout << "Invalid method" << endl;
-        }
-
-    } else if (type == "connection") {
-        if (!user.isLogged) return;
-
-        string method;
-        iss >> method;
-
-        if (method == "start") {
-            if (user.isPlaying) {
-                string message = "connection start-nok";
-                transmit(user, message);
-                return;
-            }
-
-            string message = "connection start-ok";
-            user.isPlaying = true;
-            user.isHost = true;
-        
-            transmit(user, message);
-
-        } else if (method == "gamestart") {
-
-            string port;
-            iss >> port;
-
-            user.gamePort = stoi(port);
-            string message = "connection gamestart-ok";        
-            transmit(user, message);
-        
-        } else if (method == "challenge") { 
-        
-            string opponent;
-            iss >> opponent;
-
-            bool found = false;
-            int i;
-
-
-            list<User>::iterator it;
-
-            for (it = users.begin(); it != users.end(); it++) {
-                if (it->username == opponent && it->isLogged && it->isPlaying && it->isHost) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                string message = "connection challenge-nok";
-                transmit(user, message);
-                return;
-            }
-
-            string ip = inet_ntoa(it->address.sin_addr);
-            string port = to_string(it->gamePort);
-
-            string message = "connection challenge-ok " + ip + " " + port;
-            user.isPlaying = true;
-
-            transmit(user, message);
-
-        } else if (method == "logout") {
-            if (!user.isLogged || user.isPlaying) {
-                string message = "connection logout-nok";
-                transmit(user, message);
-                return;
-            }
-
-            user.isLogged = false;
-            user.isPlaying = false;
-            user.isHost = false;
-
-            string message = "connection logout-ok";
-            transmit(user, message);
-        
-        } else {
-            cout << "Invalid method" << endl;
-        }
-    
-    
-    } else if (type == "security") {
+    if (type == "auth")
+        authType(user, users, iss);
+    else if (type == "connection") 
+        connectionType(user, users, iss);
+    else if (type == "security") {
         string method;
         iss >> method;
 
@@ -167,9 +57,125 @@ void handleRequest(char *buff, User &user, list<User> &users) {
     }
 }
 
+void authType(User &user, list<User> &users, istringstream &iss) {
+    string method;
+    iss >> method;
+
+    if (method == "signin") {
+        iss >> user.username >> user.password;
+        signin(user);
+
+    } else if (method == "login") {
+        cout << "to em login" << endl;
+
+        iss >> user.username >> user.password;
+
+        login(user, users);
+
+    } else if (method == "quit") {
+        if (user.isPlaying) {
+            string message = "auth quit-nok";
+            transmit(user, message);
+            return;
+        }
+
+        string message = "auth quit-ok";
+        transmit(user, message);
+        auto it = users.begin();
+        while (it != users.end()) {
+            bool isIpEqual =
+                it->address.sin_addr.s_addr == user.address.sin_addr.s_addr;
+            bool isPortEqual = it->address.sin_port == user.address.sin_port;
+            if (isIpEqual && isPortEqual) {
+                it = users.erase(it);
+                break;
+            } else {
+                it++;
+            }
+        }
+    } else {
+        cout << "Invalid method" << endl;
+    }
+}
+
+void connectionType(User &user, list<User> &users, istringstream &iss) {
+    if (!user.isLogged) return;
+
+    string method;
+    iss >> method;
+
+    if (method == "start") {
+        if (user.isPlaying) {
+            string message = "connection start-nok";
+            transmit(user, message);
+            return;
+        }
+
+        string message = "connection start-ok";
+        user.isPlaying = true;
+        user.isHost = true;
+
+        transmit(user, message);
+
+    } else if (method == "gamestart") {
+        string port;
+        iss >> port;
+
+        user.gamePort = stoi(port);
+        string message = "connection gamestart-ok";
+        transmit(user, message);
+
+    } else if (method == "challenge") {
+        string opponent;
+        iss >> opponent;
+
+        bool found = false;
+        int i;
+
+        list<User>::iterator it;
+
+        for (it = users.begin(); it != users.end(); it++) {
+            if (it->username == opponent && it->isLogged && it->isPlaying &&
+                it->isHost) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            string message = "connection challenge-nok";
+            transmit(user, message);
+            return;
+        }
+
+        string ip = inet_ntoa(it->address.sin_addr);
+        string port = to_string(it->gamePort);
+
+        string message = "connection challenge-ok " + ip + " " + port;
+        user.isPlaying = true;
+
+        transmit(user, message);
+
+    } else if (method == "logout") {
+        if (!user.isLogged || user.isPlaying) {
+            string message = "connection logout-nok";
+            transmit(user, message);
+            return;
+        }
+
+        user.isLogged = false;
+        user.isPlaying = false;
+        user.isHost = false;
+
+        string message = "connection logout-ok";
+        transmit(user, message);
+
+    } else {
+        cout << "Invalid method" << endl;
+    }
+}
 
 void signin(User &user) {
-    
     ifstream usersFile("users.txt");
     string line;
 
@@ -186,13 +192,13 @@ void signin(User &user) {
             break;
         }
     }
-    
+
     if (found) {
         string message = "auth signin-nok";
         transmit(user, message);
         return;
     }
-    
+
     ofstream serverFile;
     serverFile.open("users.txt", ofstream::binary | ofstream::app);
     serverFile << user.username << " " << user.password << endl;
@@ -203,7 +209,6 @@ void signin(User &user) {
 }
 
 void login(User &user, list<User> &users) {
-
     ifstream usersFile("users.txt");
     string line;
 

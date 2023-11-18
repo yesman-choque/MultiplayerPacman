@@ -4,11 +4,14 @@
 #include <iostream>
 #include <thread>
 #include <sstream>
+#include <functional>
 
 #include "../interfaces/game.hpp"
 
 void clientConnection(int listenfd);
-void gameLoop(int connfd, int listenfd, Session &session);
+void waitOponent(int connfd, int listenfd, Session &session);
+void inGameMethod(int connfd, istringstream &iss);
+
 
 void initializeGame(Session &session) {
     int listenfd, connfd;
@@ -35,8 +38,15 @@ void initializeGame(Session &session) {
     cout << "Server listening on a random port: " << ntohs(temp_addr.sin_port) << endl;
 
     session.match.port = ntohs(temp_addr.sin_port);
+    session.match.hasOpponent = false;
 
-    thread gameLoopThread(gameLoop, connfd, listenfd, ref(session));
+    createMatrix(session);
+
+
+    thread waitOponentThread(waitOponent, connfd, listenfd, ref(session));
+    waitOponentThread.detach();
+ 
+    thread gameLoopThread(gameLoop, ref(session));
     gameLoopThread.detach();
 }
 
@@ -64,7 +74,7 @@ void joinGame(Session &session, string ip, string port) {
     clientConnectionThread.detach();
 }
 
-void gameLoop(int connfd, int listenfd, Session &session) {
+void waitOponent(int connfd, int listenfd, Session &session) {
     struct sockaddr_in clientAddr;
     socklen_t clientAddrLen = sizeof(clientAddr);
 
@@ -73,6 +83,7 @@ void gameLoop(int connfd, int listenfd, Session &session) {
         cout << "TCP Connection Open" << endl;
 
         session.match.connfd = connfd;
+        session.match.hasOpponent = true;
 
         thread clientConnectionThread(clientConnection, connfd);
         clientConnectionThread.detach();
@@ -95,16 +106,30 @@ void clientConnection(int connfd) {
         string type;
         iss >> type;
 
-        if (type == "in-game") {
-            string method;
-            iss >> method;
-
-            if (method == "delay") {
-                string message = "in-game delay-ok";
-                write(connfd, message.data(), message.size());
-            }
-        }
+        if (type == "in-game") inGameMethod(connfd, iss);
 
         memset(buff, 0, 1000);
+    }
+}
+
+void inGameMethod(int connfd, istringstream &iss) {
+    string method;
+    iss >> method;
+
+    if (method == "delay") {
+        string message = "in-game delay-ok";
+        write(connfd, message.data(), message.size());
+
+    } else if (method == "end-game") {
+    
+        string message = "in-game end-game-ok";
+        write(connfd, message.data(), message.size());
+
+    } else if (method == "end-game-ok") {
+        if (close(connfd) < 0) {
+            cout << "Error closing connection" << endl;
+        } else {
+            cout << "Connection closed" << endl; 
+        }
     }
 }

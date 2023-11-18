@@ -62,8 +62,11 @@ int handleRequest(string line, Session &session) {
         string movement;
         request >> movement;
 
-        write(session.match.connfd, movement.data(), movement.size());
+        movePacman(session, movement);
+        session.match.pacman.hasMoved = true;
 
+        if (session.match.hasOpponent)
+            write(session.match.connfd, movement.data(), movement.size());
     } else if (command == "sai") {
         if (!session.isLogged) return 0;
         if (session.isPlaying) return 0;
@@ -123,6 +126,14 @@ int handleRequest(string line, Session &session) {
 
         cout << "Delay: " << duration.count() / (double)1e6 << "ms" << endl;
 
+    
+    } else if (command == "encerra") {
+        if (!session.isLogged) return 0;
+        if (!session.isPlaying) return 0;
+
+        string message = "in-game end-game";
+        write(session.match.connfd, message.data(), message.size());
+        
     } else {
         write(session.serverSocket, line.data(), line.size());
 

@@ -45,16 +45,23 @@ int main(int argc, char **argv) {
 
     if (strcmp(argv[3], "tcp") == 0) {
         serverfd = socket(AF_INET, SOCK_STREAM, 0);
+        if (serverfd < 0) {
+            perror("Erro ao criar socket");
+            exit(1);
+        }
+
         session.serverSocket = serverfd;
         session.protocol = "tcp";
-        connect(serverfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+        if (connect(serverfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+            perror("Erro ao conectar com o servidor");
+            exit(1);
+        }
 
         thread heartbeatThread(heartbeat, ref(session));
         heartbeatThread.detach();
 
         thread clientInputThread(clientInput, ref(session), serverfd);
         clientInputThread.join();
-
     } else if (strcmp(argv[3], "udp") == 0) {
         serverfd = socket(AF_INET, SOCK_DGRAM, 0);
         session.serverSocket = serverfd;
@@ -76,7 +83,15 @@ void heartbeat(Session &session) {
 
     if (session.protocol == "tcp") {
         serverfd = socket(AF_INET, SOCK_STREAM, 0);
-        connect(serverfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+        if (serverfd < 0) {
+            perror("Erro ao criar socket");
+            exit(1);
+        }
+
+        if (connect(serverfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) {
+            perror("Erro ao conectar com o servidor");
+            exit(1);
+        }
 
         auto [ip, port] = getOwnAdress(session.serverSocket);
 
@@ -105,13 +120,18 @@ void heartbeat(Session &session) {
 
     while (true) {
         int n = read(serverfd, buff.data(), buff.size());
+        if (n < 0) continue;
+
         string message(buff.data());
         
         if (message == "connection heartbeat") {
             //cout << "received a heartbeat" << endl;
 
             string heartbeatResponse = "connection heartbeat-ok";
-            write(serverfd, heartbeatResponse.data(), heartbeatResponse.size());
+
+            if (write(serverfd, heartbeatResponse.data(), heartbeatResponse.size()) < 0) {
+                cout << "Error sending heartbeat" << endl;
+            };
         }
     }
 }

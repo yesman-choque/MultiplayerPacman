@@ -1,6 +1,8 @@
 #pragma once
+
 #include <string>
 #include "session.hpp"
+#include "engine.hpp"
 
 using namespace std;
 
