@@ -10,3 +10,4 @@ using namespace std;
 
 int handleRequest(string line, Session &session);
 void transmit(Session &session, string message);
+string receive(Session &session);

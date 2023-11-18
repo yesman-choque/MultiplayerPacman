@@ -24,7 +24,7 @@ void heartbeat(list<User> &users) {
                 it = users.erase(it);
             }
         }
-        this_thread::sleep_for(chrono::seconds(5));
+        this_thread::sleep_for(chrono::seconds(20));
     }
 }
 

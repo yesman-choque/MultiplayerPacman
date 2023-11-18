@@ -15,6 +15,7 @@ struct Pacman {
 struct Ghost {
     int x;
     int y;
+    bool hasMoved;
 };
 
 struct Match {
@@ -24,9 +25,11 @@ struct Match {
     vector<vector<char>> matrix;
 
     bool hasOpponent;
+    bool isHost;
 
     Pacman pacman;
-    Ghost ghost;
+    Ghost remoteGhost;
+    Ghost botGhost;
 };
 
 struct Session {

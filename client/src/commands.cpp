@@ -29,6 +29,18 @@ void transmit(Session &session, string message) {
     }
 }
 
+string receive(Session &session) {
+    vector<char> buff(MAXLINE, 0);
+    int n;
+    if (session.protocol == "tcp") {
+        n = read(session.serverSocket, buff.data(), buff.size());
+    } else if (session.protocol == "udp") {
+        n = recvfrom(session.serverSocket, buff.data(), buff.size(), 0, NULL, NULL);
+    }
+
+    return string(buff.begin(), buff.begin() + n);
+}
+
 int handleRequest(string line, Session &session) {
     istringstream request(line);
     char recvline[MAXLINE];
@@ -62,11 +74,40 @@ int handleRequest(string line, Session &session) {
         string movement;
         request >> movement;
 
-        movePacman(session, movement);
-        session.match.pacman.hasMoved = true;
+        if (session.match.isHost) {
+            if (session.match.pacman.hasMoved) return 0;
 
-        if (session.match.hasOpponent)
-            write(session.match.connfd, movement.data(), movement.size());
+            movePacman(session, movement);
+
+            if (session.match.hasOpponent) {
+                string x = to_string(session.match.pacman.x);
+                string y = to_string(session.match.pacman.y);
+
+                string message = "in-game move pacman " + x + " " + y;
+                
+                int n = write(session.match.connfd, message.data(), message.size());
+                
+                if (n >= 0) cout << "pacman has moved" << endl;
+                else cout << "pacman has not moved" << endl;
+            }
+
+            session.match.pacman.hasMoved = true;
+
+        } else {
+            if (session.match.remoteGhost.hasMoved) return 0;
+            moveGhost(session, movement);
+
+            cout << "remoteGhost has moved" << endl;
+
+            string x = to_string(session.match.remoteGhost.x);
+            string y = to_string(session.match.remoteGhost.y);
+
+            string message = "in-game move remoteGhost " + x + " " + y;
+
+            write(session.match.connfd, message.data(), message.size());
+            
+            session.match.remoteGhost.hasMoved = true;
+        }
     } else if (command == "sai") {
         if (!session.isLogged) return 0;
         if (session.isPlaying) return 0;

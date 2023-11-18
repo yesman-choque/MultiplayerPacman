@@ -50,6 +50,19 @@ void handleRequest(char *buff, User &user, list<User> &users) {
         } else {
             cout << "Invalid method" << endl;
         }
+
+    } else if (type == "in-game") {
+        if (!user.isPlaying) return;
+
+        string method;
+        iss >> method;
+
+        if (method == "gameover") {
+            string message = "in-game gameover-ok";
+            user.isPlaying = false;
+            transmit(user, message);
+        }
+
     } else {
         cout << "Invalid type" << endl;
         string message = "Invalid type";
@@ -169,7 +182,6 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
 
         string message = "connection logout-ok";
         transmit(user, message);
-
     } else {
         cout << "Invalid method" << endl;
     }
