@@ -9,6 +9,7 @@
 
 void authType(User &user, list<User> &users, istringstream &iss);
 void connectionType(User &user, list<User> &users, istringstream &iss);
+void passwd(User &user, string oldPassword, string newPassword);
 
 void transmit(User &user, string message) {
     cout << "entrei aqui" << endl;
@@ -22,7 +23,6 @@ void transmit(User &user, string message) {
     else if (user.protocol == "udp") {
         sendto(user.socket, message.data(), message.size(), 0,
                (struct sockaddr *)&user.address, sizeof(user.address));
-        cout << "mano estou aqui" << endl;
     }
 }
 
@@ -61,6 +61,12 @@ void handleRequest(char *buff, User &user, list<User> &users) {
             string message = "in-game gameover-ok";
             user.isPlaying = false;
             transmit(user, message);
+        } else if (method == "endgame") {
+            string message = "in-game endgame-ok";
+            user.isPlaying = false;
+            transmit(user, message);
+        } else {
+            cout << "Invalid method" << endl;
         }
 
     } else {
@@ -106,6 +112,10 @@ void authType(User &user, list<User> &users, istringstream &iss) {
                 it++;
             }
         }
+    } else if (method == "passwd") {
+        string oldPassword, newPassword;
+        iss >> oldPassword >> newPassword;
+        passwd(user, oldPassword, newPassword);
     } else {
         cout << "Invalid method" << endl;
     }
@@ -182,9 +192,83 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
 
         string message = "connection logout-ok";
         transmit(user, message);
+    
+    } else if (method == "list") {
+        if (!user.isLogged) {
+            string message = "connection list-nok";
+            transmit(user, message);
+            return;
+        }
+
+        string message = "connection list-ok ";
+        string usersList = "";
+
+        int loggedUsers = 0;
+        for (User u : users) {
+            if (u.isLogged) {
+                loggedUsers++;
+                usersList += " " + u.username;
+            }
+        }
+        message += to_string(loggedUsers) + usersList;
+        transmit(user, message);
+
     } else {
         cout << "Invalid method" << endl;
     }
+}
+
+
+void passwd(User &user, string oldPassword, string newPassword) {
+    ifstream usersFile("users.txt");
+    string line;
+
+    bool found = false;
+    while (getline(usersFile, line)) {
+        istringstream iss(line);
+        string userFile, passFile;
+
+        iss >> userFile >> passFile;
+
+        if (userFile == user.username && passFile == oldPassword) {
+            cout << "User found" << endl;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        cout << "User not found" << endl;
+        string message = "auth passwd-nok";
+        transmit(user, message);
+        return;
+    }
+
+    ifstream usersFile2("users.txt");
+    ofstream tempFile("temp.txt");
+
+    while (getline(usersFile2, line)) {
+        istringstream iss(line);
+        string userFile, passFile;
+
+        iss >> userFile >> passFile;
+
+        if (userFile == user.username) {
+            tempFile << userFile << " " << newPassword << endl;
+        } else {
+            tempFile << userFile << " " << passFile << endl;
+        }
+    }
+
+    usersFile.close();
+    usersFile2.close();
+    tempFile.close();
+
+    remove("users.txt");
+    rename("temp.txt", "users.txt");
+
+    string message = "auth passwd-ok";
+    transmit(user, message);
 }
 
 void signin(User &user) {

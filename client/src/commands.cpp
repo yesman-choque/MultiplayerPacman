@@ -55,7 +55,21 @@ int handleRequest(string line, Session &session) {
     } else if (command == "entra") {
         request >> session.user >> session.password;
         login(session);
+    } else if (command == "senha") {
+        if (!session.isLogged) return 0;
+        
+        string oldpassword, newpassword;
+        request >> oldpassword >> newpassword;
 
+        string message = "auth passwd " + oldpassword + " " + newpassword;
+        transmit(session, message);
+        string response = receive(session);
+
+        if (response == "auth passwd-ok") {
+            cout << "Password has been changed" << endl;
+        } else if (response == "auth passwd-nok") {
+            cout << "Password has not been changed" << endl;
+        }
     } else if (command == "inicia") {
         if (!session.isLogged) return 0;
         startgame(session);
@@ -174,13 +188,53 @@ int handleRequest(string line, Session &session) {
         if (!session.isLogged) return 0;
         if (!session.isPlaying) return 0;
 
-        string message = "in-game end-game";
+        string message = "in-game endgame";
         if (session.match.hasOpponent) {
-            transmitP2P(session, message);
+            transmitP2P(session, message);            
         } else {
             close(session.match.listenfd);
             session.isPlaying = false;
         }
+
+        transmit(session, message);
+        string response = receive(session);
+
+        if (response == "in-game endgame-ok") {
+            cout << "Game has ended" << endl;
+            session.isPlaying = false;
+        } else if (response == "in-game endgame-nok") {
+            cout << "Game has not ended" << endl;
+        }
+
+    } else if (command == "l") {
+        if (!session.isLogged) return 0;
+
+        string message = "connection list";
+        transmit(session, message);
+        string response = receive(session);
+
+        istringstream iss(response);
+
+        string type, method, numPlayers;
+
+        iss >> type >> method >> numPlayers;
+
+        cout << "Players online: " << numPlayers << endl;
+
+        for (int i = 0; i < stoi(numPlayers); i++) {
+            string username;
+            iss >> username;
+            cout << username << endl;
+        }
+
+    } else if (command == "lideres") {
+        if (!session.isLogged) return 0;
+
+        string message = "connection leaderboard";
+        transmit(session, message);
+        string response = receive(session);
+
+
     } else {
         write(session.serverSocket, line.data(), line.size());
 

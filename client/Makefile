@@ -25,4 +25,4 @@ clean:
 	@rm -rf $(BUILDDIR) bin
 
 run:
-	./$(TARGET) localhost 8080 udp
+	./$(TARGET) localhost 8080 tcp

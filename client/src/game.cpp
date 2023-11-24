@@ -148,12 +148,12 @@ void inGameMethod(Session &session, istringstream &iss) {
         string message = "in-game delay-ok";
         write(connfd, message.data(), message.size());
 
-    } else if (method == "end-game") {
+    } else if (method == "endgame") {
     
-        string message = "in-game end-game-ok";
+        string message = "in-game endgame-ok";
         write(connfd, message.data(), message.size());
 
-    } else if (method == "end-game-ok") {
+    } else if (method == "endgame-ok") {
         if (close(connfd) < 0) {
             cout << "Error closing connection" << endl;
         } else {
