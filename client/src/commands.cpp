@@ -70,6 +70,8 @@ int handleRequest(string line, Session &session) {
         challenge(session, opponent);
 
     } else if (command == "move") {
+        if (!session.isLogged) return 0;
+        if (!session.isPlaying) return 0;
 
         string movement;
         request >> movement;
@@ -173,8 +175,12 @@ int handleRequest(string line, Session &session) {
         if (!session.isPlaying) return 0;
 
         string message = "in-game end-game";
-        write(session.match.connfd, message.data(), message.size());
-        
+        if (session.match.hasOpponent) {
+            transmitP2P(session, message);
+        } else {
+            close(session.match.listenfd);
+            session.isPlaying = false;
+        }
     } else {
         write(session.serverSocket, line.data(), line.size());
 

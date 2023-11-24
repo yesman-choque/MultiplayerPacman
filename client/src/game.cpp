@@ -52,6 +52,7 @@ void initializeGame(Session &session) {
     session.match.port = ntohs(temp_addr.sin_port);
     session.match.hasOpponent = false;
     session.match.isHost = true;
+    session.match.listenfd = listenfd;
 
     createMatrix(session);
 
@@ -133,6 +134,9 @@ void clientConnection(Session &session) {
 
         memset(buff, 0, 1000);
     }
+
+    cout << "Connection closed" << endl;
+    session.match.hasOpponent = false;
 }
 
 void inGameMethod(Session &session, istringstream &iss) {
@@ -154,6 +158,7 @@ void inGameMethod(Session &session, istringstream &iss) {
             cout << "Error closing connection" << endl;
         } else {
             cout << "Connection closed" << endl; 
+            session.isPlaying = false;
         }
     } else if (method == "data") {
         string arg;
@@ -214,6 +219,18 @@ void inGameMethod(Session &session, istringstream &iss) {
             transmitP2P(session, message);
             
             session.match.remoteGhost.hasMoved = true;
+        }
+    } else if (method == "gameover") {
+        string message = "in-game gameover-ok";
+        session.isPlaying = false;
+        transmitP2P(session, message);
+        close(connfd);
+    } else if (method == "gameover-ok") {
+        if (close(connfd) < 0) {
+            cout << "Error closing connection" << endl;
+        } else {
+            cout << "Connection closed" << endl; 
+            session.isPlaying = false;
         }
     }
 }

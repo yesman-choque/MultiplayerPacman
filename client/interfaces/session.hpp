@@ -10,6 +10,7 @@ struct Pacman {
     int x;
     int y;
     bool hasMoved;
+    int pacdots;
 };
 
 struct Ghost {
@@ -21,6 +22,7 @@ struct Ghost {
 struct Match {
     uint16_t port;
     int connfd;
+    int listenfd;
     struct sockaddr_in socket;
     vector<vector<char>> matrix;
 
