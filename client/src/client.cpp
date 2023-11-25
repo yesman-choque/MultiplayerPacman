@@ -61,7 +61,26 @@ int main(int argc, char **argv) {
         heartbeatThread.detach();
 
         thread clientInputThread(clientInput, ref(session), serverfd);
-        clientInputThread.join();
+        clientInputThread.detach();
+
+        vector<char> buff(1000, 0);
+        while (true) {
+            int n = recv(serverfd, buff.data(), buff.size(), 0);
+            if (n < 0) continue;
+
+            string message(buff.data());
+
+            if (message == "auth signin-ok") {
+                cout << "Success to signin" << endl;
+            }
+
+            if (message == "auth signin-failed") {
+                cout << "Failed to signin" << endl;
+            }
+
+            bzero(buff.data(), buff.size());
+        }
+
     } else if (strcmp(argv[3], "udp") == 0) {
         serverfd = socket(AF_INET, SOCK_DGRAM, 0);
 

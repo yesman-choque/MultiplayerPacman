@@ -285,23 +285,10 @@ int handleRequest(string line, Session &session) {
 }
 
 void singup(Session &session) {
-    cout << session.user << "X" << session.password << endl;
+    cout << session.user << " " << session.password << endl;
     string message = "auth signin " + session.user + " " + session.password;
 
     transmit(session, message);
-
-    char recvline[MAXLINE]; int n;
-    n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
-
-    recvline[n] = 0;
-
-    string response(recvline);
-
-    if (response == "auth signin-ok") {
-        cout << "User has been registered" << endl;
-    } else if (response == "auth signin-nok") {
-        cout << "User already exists" << endl;
-    }
 }
 
 void login(Session &session) {
