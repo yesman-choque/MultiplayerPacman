@@ -202,6 +202,16 @@ int handleRequest(string line, Session &session) {
         if (response == "in-game endgame-ok") {
             cout << "Game has ended" << endl;
             session.isPlaying = false;
+
+            string message = "in-game points " + to_string(session.match.pacman.pacdots);
+            transmit(session, message);
+            string response = receive(session);
+
+            if (response == "in-game points-ok") {
+                cout << "Points has been sent" << endl;
+            } else if (response == "in-game points-nok") {
+                cout << "Points has not been sent" << endl;
+            }
         } else if (response == "in-game endgame-nok") {
             cout << "Game has not ended" << endl;
         }
@@ -234,7 +244,19 @@ int handleRequest(string line, Session &session) {
         transmit(session, message);
         string response = receive(session);
 
+        istringstream iss(response);
 
+        string type, method, numPlayers;
+        iss >> type >> method >> numPlayers;
+
+        cout << "Table of leaders:" << endl;
+
+        // Sort by points
+        for (int i = 0; i < stoi(numPlayers); i++) {
+            string username, points;
+            iss >> username >> points;
+            cout << username << " " << points << endl;
+        }
     } else {
         write(session.serverSocket, line.data(), line.size());
 

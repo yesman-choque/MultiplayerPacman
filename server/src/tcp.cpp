@@ -20,6 +20,13 @@ void tcpCommunication(int tcpListenfd, list<User> &users) {
     for (;;) {
         int connfd = accept(tcpListenfd, (struct sockaddr *) &clientAddr, &clientAddrLen);
         cout << "TCP Connection Open" << endl;
+        
+        // Report connection with client ip
+        string level = "INFO";
+        string event = "User connected to server via TCP";
+        string details = "IP: " + string(inet_ntoa(clientAddr.sin_addr)) + ":" + to_string(ntohs(clientAddr.sin_port));
+
+        report(level, event, details);
 
         users.push_back(User(connfd, "tcp"));
         users.back().address = clientAddr;

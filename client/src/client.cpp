@@ -64,9 +64,27 @@ int main(int argc, char **argv) {
         clientInputThread.join();
     } else if (strcmp(argv[3], "udp") == 0) {
         serverfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+        if (serverfd < 0) {
+            perror("Erro ao criar socket");
+            exit(1);
+        }
+
         session.serverSocket = serverfd;
         session.protocol = "udp";
+
+        if (connect(serverfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+            perror("Erro ao conectar com o servidor");
+            exit(1);
+        }
+
+        string line;
+        getline(cin, line);
+        handleRequest(line, session);
         
+        thread heartbeatThread(heartbeat, ref(session));
+        heartbeatThread.detach();
+
         thread clientInputThread(clientInput, ref(session), serverfd);
         clientInputThread.join();
     }
@@ -114,24 +132,50 @@ void heartbeat(Session &session) {
         }
     } else if (session.protocol == "udp") {
         serverfd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (serverfd < 0) {
+            perror("Erro ao criar socket");
+            exit(1);
+        }
+
+        auto [ip, port] = getOwnAdress(session.serverSocket);
+
+        cout << "IP: " << ip << endl;
+        cout << "Port: " << port << endl;
+
+        string message = "security heartbeat " + ip + " " + port;
+
+        sendto(serverfd, message.data(), message.size(), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+
+        vector<char> buff(1000, 0);
+        int n = recv(serverfd, buff.data(), buff.size(), 0);
+        string response(buff.data());
+
+        if (response == "security heartbeat-ok") {
+            cout << "Connection Established" << endl;
+        } else {
+            cout << "Connection is Not Established" << endl;
+            exit(1);
+        }
     }    
 
     vector<char> buff(1000, 0);
 
     while (true) {
-        int n = read(serverfd, buff.data(), buff.size());
+        int n = recvfrom(serverfd, buff.data(), buff.size(), 0, NULL, NULL);
         if (n < 0) continue;
 
         string message(buff.data());
         
         if (message == "connection heartbeat") {
-            //cout << "received a heartbeat" << endl;
+            cout << "received a heartbeat" << endl;
 
             string heartbeatResponse = "connection heartbeat-ok";
 
-            if (write(serverfd, heartbeatResponse.data(), heartbeatResponse.size()) < 0) {
-                cout << "Error sending heartbeat" << endl;
-            };
+            if (session.protocol == "tcp") {
+                write(serverfd, heartbeatResponse.data(), heartbeatResponse.size());
+            } else if (session.protocol == "udp") {
+                sendto(serverfd, heartbeatResponse.data(), heartbeatResponse.size(), 0, (struct sockaddr *)&servaddr, sizeof(servaddr));
+            }
         }
     }
 }

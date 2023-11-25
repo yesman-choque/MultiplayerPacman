@@ -37,6 +37,9 @@ int main() {
     thread tcphbThread(tcphb, tcpfd_hb, ref(users));
     tcphbThread.detach();
 
+    thread udpThread_hb(udphb, udpfd_hb, ref(users));
+    udpThread_hb.detach();
+
     thread tcpThread(tcpCommunication, tcpfd, ref(users));
     tcpThread.detach();
 

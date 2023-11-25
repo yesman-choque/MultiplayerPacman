@@ -118,8 +118,6 @@ void gameLoop(Session &session) {
             this_thread::sleep_for(chrono::milliseconds(100));
         }
 
-        printMatrix(session.match.matrix, session);
-
         if (hasCapturePacdot(session)) {
             session.match.pacman.pacdots++;
             if (session.match.pacman.pacdots == 50) {
@@ -137,6 +135,8 @@ void gameLoop(Session &session) {
                 }
             }
         }
+        
+        printMatrix(session.match.matrix, session);
 
         if (hasCollideWithPacman(session)) {
             cout << "Game Over" << endl;

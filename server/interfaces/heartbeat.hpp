@@ -14,3 +14,4 @@
 
 void heartbeat(list<User> &users);
 void tcphb(int tcpfd, list<User> &users);
+void udphb(int udpfd, list<User> &users);
