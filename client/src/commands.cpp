@@ -22,9 +22,10 @@ void challenge(Session &session, string opponent);
 
 void transmit(Session &session, string message) {
     if (session.protocol == "tcp") {
-        write(session.serverSocket, message.data(), message.size());
+        send(session.serverSocket, message.data(), message.size(), 0);
     } else if (session.protocol == "udp") {
         cout << "sou cliente udp" << endl;
+
         sendto(session.serverSocket, message.data(), message.size(), 0, (struct sockaddr *)&session.serverAddress, sizeof(session.serverAddress));
     }
 }
@@ -43,7 +44,6 @@ string receive(Session &session) {
 
 int handleRequest(string line, Session &session) {
     istringstream request(line);
-    char recvline[MAXLINE];
 
     string command;
     request >> command;
@@ -51,11 +51,14 @@ int handleRequest(string line, Session &session) {
     if (command == "novo") {
         request >> session.user >> session.password;
         singup(session);
-
-    } else if (command == "entra") {
+    } 
+    
+    else if (command == "entra") {
         request >> session.user >> session.password;
         login(session);
-    } else if (command == "senha") {
+    } 
+    
+    else if (command == "senha") {
         if (!session.isLogged) return 0;
         
         string oldpassword, newpassword;
@@ -63,27 +66,23 @@ int handleRequest(string line, Session &session) {
 
         string message = "auth passwd " + oldpassword + " " + newpassword;
         transmit(session, message);
-        string response = receive(session);
-
-        if (response == "auth passwd-ok") {
-            cout << "Password has been changed" << endl;
-        } else if (response == "auth passwd-nok") {
-            cout << "Password has not been changed" << endl;
-        }
-    } else if (command == "inicia") {
+    } 
+    
+    else if (command == "inicia") {
         if (!session.isLogged) return 0;
         startgame(session);
-
-
-    } else if (command == "desafio") {
+    } 
+    
+    else if (command == "desafio") {
         if (!session.isLogged) return 0;
 
         string opponent;
         request >> opponent;
 
         challenge(session, opponent);
-
-    } else if (command == "move") {
+    } 
+    
+    else if (command == "move") {
         if (!session.isLogged) return 0;
         if (!session.isPlaying) return 0;
 
@@ -124,45 +123,23 @@ int handleRequest(string line, Session &session) {
             
             session.match.remoteGhost.hasMoved = true;
         }
-    } else if (command == "sai") {
+    } 
+    
+    else if (command == "sai") {
         if (!session.isLogged) return 0;
         if (session.isPlaying) return 0;
 
         string message = "connection logout";
         transmit(session, message);
-
-        char recvline[MAXLINE];
-        int n;
-        n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
-        recvline[n] = 0;
-
-        string response(recvline);
-        if (response == "connection logout-ok") {
-            cout << "User has logged out" << endl;
-            session.isLogged = false;
-            return 0;
-        } else if (response == "connection logout-nok") {
-            cout << "User has not logged out" << endl;
-        }
-
-    } else if (command == "tchau") { 
+    } 
+    
+    else if (command == "tchau") { 
         string message = "auth quit";
         transmit(session, message);
-
-        char recvline[MAXLINE];
-        int n;
-        n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
-        recvline[n] = 0;
-
-        string response(recvline);
-        if (response == "auth quit-ok") {
-            cout << "User has quit" << endl;
-            return 1;
-        } else if (response == "auth quit-nok") {
-            cout << "User has not quit" << endl;
-        }
+        return 1;
+    } 
     
-    } else if (command == "atraso") {
+    else if (command == "atraso") {
         if (!session.isLogged) return 0;
         if (!session.isPlaying) return 0;
 
@@ -182,9 +159,10 @@ int handleRequest(string line, Session &session) {
         auto duration = duration_cast<nanoseconds>(stop - start);
 
         cout << "Delay: " << duration.count() / (double)1e6 << "ms" << endl;
-
     
-    } else if (command == "encerra") {
+    } 
+    
+    else if (command == "encerra") {
         if (!session.isLogged) return 0;
         if (!session.isPlaying) return 0;
 
@@ -197,88 +175,44 @@ int handleRequest(string line, Session &session) {
         }
 
         transmit(session, message);
-        string response = receive(session);
-
-        if (response == "in-game endgame-ok") {
-            cout << "Game has ended" << endl;
-            session.isPlaying = false;
-
-            string message = "in-game points " + to_string(session.match.pacman.pacdots);
-            transmit(session, message);
-            string response = receive(session);
-
-            if (response == "in-game points-ok") {
-                cout << "Points has been sent" << endl;
-            } else if (response == "in-game points-nok") {
-                cout << "Points has not been sent" << endl;
-            }
-        } else if (response == "in-game endgame-nok") {
-            cout << "Game has not ended" << endl;
-        }
-
-    } else if (command == "l") {
+    }
+    
+    else if (command == "l") {
         if (!session.isLogged) return 0;
 
         string message = "connection list";
         transmit(session, message);
-        string response = receive(session);
-
-        istringstream iss(response);
-
-        string type, method, numPlayers;
-
-        iss >> type >> method >> numPlayers;
-
-        cout << "Players online: " << numPlayers << endl;
-
-        for (int i = 0; i < stoi(numPlayers); i++) {
-            string username;
-            iss >> username;
-            cout << username << endl;
-        }
-
-    } else if (command == "lideres") {
+    } 
+    
+    else if (command == "lideres") {
         if (!session.isLogged) return 0;
 
         string message = "connection leaderboard";
         transmit(session, message);
-        string response = receive(session);
+    } 
+    
+    else {
+        // write(session.serverSocket, line.data(), line.size());
 
-        istringstream iss(response);
+        // struct pollfd fds[1];
+        // fds[0].fd = session.serverSocket;
+        // fds[0].events = POLLIN;
 
-        string type, method, numPlayers;
-        iss >> type >> method >> numPlayers;
+        // int n = poll(fds, 1, 5000);
 
-        cout << "Table of leaders:" << endl;
+        // if (n == 0) {
+        //     cout << "Server is not responding" << endl;
+        //     return 0;
+        // } else {
+        //     cout << "Server responds" << endl;
 
-        // Sort by points
-        for (int i = 0; i < stoi(numPlayers); i++) {
-            string username, points;
-            iss >> username >> points;
-            cout << username << " " << points << endl;
-        }
-    } else {
-        write(session.serverSocket, line.data(), line.size());
+        //     char buffer[MAXLINE];
+        //     int n = read(session.serverSocket, buffer, MAXLINE);
+        //     buffer[n] = 0;
 
-        struct pollfd fds[1];
-        fds[0].fd = session.serverSocket;
-        fds[0].events = POLLIN;
-
-        int n = poll(fds, 1, 5000);
-
-        if (n == 0) {
-            cout << "Server is not responding" << endl;
-            return 0;
-        } else {
-            cout << "Server responds" << endl;
-
-            char buffer[MAXLINE];
-            int n = read(session.serverSocket, buffer, MAXLINE);
-            buffer[n] = 0;
-
-            string response(buffer);
-            cout << response << endl;
-        }
+        //     string response(buffer);
+        //     cout << response << endl;
+        // }
     }
 
     return 0;
@@ -295,83 +229,15 @@ void login(Session &session) {
     string message = "auth login " + session.user + " " + session.password;
 
     transmit(session, message);
-    char recvline[MAXLINE]; int n;
-    again: n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
-
-    recvline[n] = 0;
-    string response(recvline);
-
-    if (response == "auth login-ok") {
-        cout << "User has logged in" << endl;
-        session.isLogged = true;
-    } else if (response == "auth login-nok") {
-        cout << "Login is incorrect or user is already logged" << endl;
-    } else {
-        goto again;
-    }
 }
 
 void startgame(Session &session) {
     string message = "connection start";
-
-    char recvline[MAXLINE];
-    int n;
-
     transmit(session, message);
-    n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
-    recvline[n] = 0;
-    string response(recvline);
-
-    if (response == "connection start-nok") {
-        cout << "Game has not started" << endl;
-        return;
-    }
-
-    session.isPlaying = true;
-
-    thread initializeGameThread(initializeGame, ref(session));
-    initializeGameThread.join();
-
-    message = "connection gamestart " + to_string(session.match.port);
-    cout << message << endl;
-    transmit(session, message);
-
-    n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
-    recvline[n] = 0;
-
-    string response2(recvline);
-    if (response2 == "connection gamestart-nok") {
-        cout << "Game has not started" << endl;
-        return;
-    }
 }
 
 void challenge(Session &session, string opponent) {
     string message = "connection challenge " + opponent;
 
     transmit(session, message);
-
-    char recvline[MAXLINE];
-    int n;
-
-    n = recvfrom(session.serverSocket, recvline, MAXLINE, 0, NULL, NULL);
-
-    recvline[n] = 0;
-    string response(recvline);
-
-    cout << response << endl;
-
-    if (response == "connection challenge-nok") {
-        cout << "Challenge has not been sent" << endl;
-        return;
-    }
-
-    session.isPlaying = true;
-
-    string type, connection, ip, port;
-    istringstream iss(response);
-    iss >> type >> connection >> ip >> port;
-
-    thread initializeGameThread(joinGame, ref(session), ip, port);
-    initializeGameThread.detach();
 }

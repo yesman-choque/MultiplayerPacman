@@ -48,7 +48,15 @@ void handleRequest(char *buff, User &user, list<User> &users) {
             string port = to_string(8081);
             string message = "security heartbeat-ok " + port;
             transmit(user, message);
-        } else {
+        } 
+        
+        else if (method == "heartbeat-ok") {
+            cout << "heartbeat ok was received" << endl;
+
+            user.isAlive = true;
+        }
+        
+        else {
             cout << "Invalid method" << endl;
         }
 
@@ -203,7 +211,6 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
         iss >> opponent;
 
         bool found = false;
-        int i;
 
         list<User>::iterator it;
 
@@ -297,8 +304,9 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
 
         message += usersList;
         transmit(user, message);
-
-    } else {
+    }
+    
+    else {
         cout << "Invalid method" << endl;
     }
 }

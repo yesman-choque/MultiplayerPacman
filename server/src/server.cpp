@@ -26,19 +26,11 @@ tuple<int, int> createSockets(int port);
 
 int main() {
     // Create TCP and UDP sockets on ports 8080 for the main 
-    // communication and 8081 for the heartbeat
     auto [tcpfd, udpfd] = createSockets(8080);
-    auto [tcpfd_hb, udpfd_hb] = createSockets(8081);
 
     // Start heartbeat thread
     thread heartbeatThread(heartbeat, ref(users));
     heartbeatThread.detach();
-
-    thread tcphbThread(tcphb, tcpfd_hb, ref(users));
-    tcphbThread.detach();
-
-    thread udpThread_hb(udphb, udpfd_hb, ref(users));
-    udpThread_hb.detach();
 
     thread tcpThread(tcpCommunication, tcpfd, ref(users));
     tcpThread.detach();
@@ -75,7 +67,7 @@ tuple<int, int> createSockets(int port) {
         exit(1);
     }
 
-    if (listen(tcpfd, 5)) {
+    if (listen(tcpfd, 10)) {
         cout << "Error listening TCP socket" << endl;
         exit(1);
     }

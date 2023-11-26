@@ -40,10 +40,17 @@ struct Session {
 
     bool isLogged;
     bool isPlaying;
+    bool hasExited;
 
     string protocol;
     int serverSocket;
     struct sockaddr_in serverAddress;
 
     Match match;
+
+    Session() {
+        this->isLogged = false;
+        this->isPlaying = false;
+        this->hasExited = false;
+    }
 };

@@ -1,14 +1,12 @@
 #include "../interfaces/tcp.hpp"
 
 void clientConnection(User &client, list<User> &users) {
+    vector<char> buff(4096, 0);
     int n;
-    char buff[1000];
-    memset(buff, 0, 1000);
-    while ((n = read(client.socket, buff, 1000)) > 0) {
+    while ((n = read(client.socket, buff.data(), buff.size())) > 0) {
         cout << n << endl;
-        buff[n] = 0;
-        handleRequest(buff, client, users);
-        memset(buff, 0, 1000);
+        handleRequest(buff.data(), client, users);
+        buff.assign(buff.size(), 0);
     }
 }
 

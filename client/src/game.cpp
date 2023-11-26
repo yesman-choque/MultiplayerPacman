@@ -235,7 +235,6 @@ void inGameMethod(Session &session, istringstream &iss) {
     }
 }
 
-
 void receiveGameData(Session &session) {
     string message = "in-game data pacman";
     transmitP2P(session, message);
