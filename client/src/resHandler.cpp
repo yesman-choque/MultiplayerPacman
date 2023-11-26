@@ -43,9 +43,11 @@ void handleGameResponse(istringstream &iss, Session &session) {
     if (method == "endgame-ok") {
         cout << "Game has ended" << endl;
         session.isPlaying = false;
-
-        string message = "in-game points " + to_string(session.match.pacman.pacdots);
-        transmit(session, message);
+        if (session.match.isHost) {
+            string message = "in-game points " + to_string(session.match.pacman.pacdots);
+            transmit(session, message);
+        }
+        session.match.pacdots.clear();
     }
     
     else if (method == "endgame-nok") {
@@ -138,7 +140,6 @@ void handleConnectionResponse(istringstream &iss, Session &session) {
             cout << username << " " << points << endl;
         }
     }
-
 
     else if (method == "start-ok") {
         cout << "Game is starting" << endl;

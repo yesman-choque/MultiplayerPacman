@@ -1,6 +1,6 @@
 #include "../interfaces/udp.hpp"
 
-void udpClientConnection(int udpListenfd, string message, struct sockaddr_in clientAddr, socklen_t clientAddrLen, list<User> &users) {
+void udpClientConnection(int udpListenfd, string message, struct sockaddr_in clientAddr, list<User> &users) {
     cout << "UDP Connection Open" << endl;
     bool isNewUser = true;
 
@@ -41,7 +41,7 @@ void udpCommunication(int udpListenfd, list<User> &users) {
         buff[n] = 0;
         string message(buff);
 
-        thread udpClientConnectionThread(udpClientConnection, udpListenfd, message, clientAddr, clientAddrLen, ref(users));
+        thread udpClientConnectionThread(udpClientConnection, udpListenfd, message, clientAddr, ref(users));
         udpClientConnectionThread.detach();
 
         memset(buff, 0, 1000);

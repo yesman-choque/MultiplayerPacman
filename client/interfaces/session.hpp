@@ -3,6 +3,7 @@
 #include <string>
 #include <netinet/in.h>
 #include <vector>
+#include <list>
 
 using namespace std;
 
@@ -32,6 +33,7 @@ struct Match {
     Pacman pacman;
     Ghost remoteGhost;
     Ghost botGhost;
+    list<pair<int, int>> pacdots;
 };
 
 struct Session {

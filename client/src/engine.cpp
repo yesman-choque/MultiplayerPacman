@@ -158,23 +158,35 @@ void gameLoop(Session &session) {
 
 void createMatrix(Session &session) {
     std::vector<std::vector<char>> matrix = {
-        {'*', '*', '*', '*', '*', '*', '.', '*', '*', '.', '.', '.', ' ', '.',
-         '.', '.', '.', '.', '*', '*', '.', '*', '*', '*', '*', '*', '*'},
-        {'*', '*', '*', '*', '*', '*', '.', '*', '*', '.', '*', '*', '*', '*',
-         '*', '*', '*', '.', '*', '*', '.', '*', '*', '*', '*', '*', '*'},
-        {'*', '*', '*', '*', '*', '*', '.', '*', '*', '.', '*', '.', '.', ' ',
-         '.', '.', '*', '.', '*', '*', '.', '*', '*', '*', '*', '*', '*'},
-        {'.', '.', '.', '.', '.', ' ', '.', '.', '.', '.', '*', '.', '.', ' ',
-         '.', '.', '*', '.', '.', '.', '.', '.', '.', '.', ' ', '.', '.'},
-        {'*', '*', '*', '*', '*', '*', '.', '*', '*', '.', '*', '.', '.', ' ',
-         '.', '.', '*', '.', '*', '*', '.', '*', '*', '*', '*', '*', '*'},
+        {'*', '*', '*', '*', '*', '*', ' ', '*', '*', ' ', ' ', ' ', ' ', ' ',
+         ' ', ' ', ' ', ' ', '*', '*', ' ', '*', '*', '*', '*', '*', '*'},
+        {'*', '*', '*', '*', '*', '*', ' ', '*', '*', ' ', '*', '*', '*', '*',
+         '*', '*', '*', ' ', '*', '*', ' ', '*', '*', '*', '*', '*', '*'},
+        {'*', '*', '*', '*', '*', '*', ' ', '*', '*', ' ', '*', ' ', ' ', ' ',
+         ' ', ' ', '*', ' ', '*', '*', ' ', '*', '*', '*', '*', '*', '*'},
+        {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '*', ' ', ' ', ' ',
+         ' ', ' ', '*', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '},
+        {'*', '*', '*', '*', '*', '*', ' ', '*', '*', ' ', '*', ' ', ' ', ' ',
+         ' ', ' ', '*', ' ', '*', '*', ' ', '*', '*', '*', '*', '*', '*'},
     };
 
     session.match.matrix = matrix;
-    session.match.botGhost = {3, 24};
-    session.match.remoteGhost = {3, 5};
-    session.match.pacman = {2, 13};
-    session.match.pacman.pacdots = 0;
+
+    if (session.match.isHost) {
+        session.match.botGhost = {3, 24, false};
+        session.match.remoteGhost = {3, 5, false};
+        session.match.pacman = {2, 13, false, 0};
+        session.match.pacman.pacdots = 0;
+
+        session.match.pacdots = {
+            {0, 6}, {0, 9}, {0, 10}, {0, 11}, {0, 13}, {0, 14}, {0, 15}, {0, 16}, {0, 17}, {0, 20}, 
+            {1, 6}, {1, 9}, {1, 17}, {1, 20},
+            {2, 6}, {2, 9}, {2, 11}, {2, 12}, {2, 14}, {2, 15}, {2, 17}, {2, 20},
+            {3, 0}, {3, 1}, {3, 2}, {3, 3}, {3, 4}, {3, 6}, {3, 7}, {3, 8}, {3, 9}, {3, 11}, {3, 12}, {3, 14}, {3, 15},
+            {3, 17}, {3, 18}, {3, 19}, {3, 20}, {3, 21}, {3, 22}, {3, 23}, {3, 25},
+            {4, 6}, {4, 9}, {4, 11}, {4, 12}, {4, 14}, {4, 15}, {4, 17}
+        };
+    }
 }
 
 // move pacman
@@ -300,6 +312,18 @@ void printMatrix(vector<vector<char>> matrix, Session &session) {
     int nrows = matrix.size();
     int ncols = matrix[0].size();
 
+    vector<vector<char>> newmatrix(nrows, vector<char>(ncols));
+
+    for (int i = 0; i < nrows; i++) {
+        for (int j = 0; j < ncols; j++) {
+            newmatrix[i][j] = matrix[i][j];
+        }
+    }
+
+    for (auto [x, y] : session.match.pacdots) {
+        newmatrix[x][y] = '.';
+    }
+
     for (int i = 0; i < nrows; i++) {
         for (int j = 0; j < ncols; j++) {
             bool isBotHere =
@@ -314,22 +338,32 @@ void printMatrix(vector<vector<char>> matrix, Session &session) {
                 cout << "\033[1;35m"
                      << "H"
                      << "\033[0m ";
-            } else if (isBotHere) {
+            } 
+            
+            else if (isBotHere) {
                 cout << "\033[1;31m"
                      << "F"
                      << "\033[0m ";
-            } else if (isGhostHere) {
+            } 
+            
+            else if (isGhostHere) {
                 cout << "\033[1;35m"
                      << "f"
                      << "\033[0m ";
-            } else if (isPacmanHere) {
+            } 
+            
+            else if (isPacmanHere) {
                 cout << "\033[1;33m"
                      << "C"
                      << "\033[0m ";
-            } else if (matrix[i][j] == '*') {
-                cout << "\033[1;34m" << matrix[i][j] << "\033[0m ";
-            } else {
-                cout << matrix[i][j] << " ";
+            } 
+            
+            else if (newmatrix[i][j] == '*') {
+                cout << "\033[1;34m" << newmatrix[i][j] << "\033[0m ";
+            } 
+            
+            else {
+                cout << newmatrix[i][j] << " ";
             }
         }
         cout << endl;
@@ -352,10 +386,15 @@ bool hasCapturePacdot(Session &session) {
     int x = session.match.pacman.x;
     int y = session.match.pacman.y;
 
-    if (session.match.matrix[x][y] == '.') {
-        session.match.matrix[x][y] = ' ';
-        return true;
-    } else {
-        return false;
+    auto it = session.match.pacdots.begin();
+
+    while (it != session.match.pacdots.end()) {
+        if (it->first == x && it->second == y) {
+            session.match.pacdots.erase(it);
+            return true;
+        }
+        it++;
     }
+
+    return false;
 }
