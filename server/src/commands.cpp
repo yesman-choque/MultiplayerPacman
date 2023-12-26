@@ -13,12 +13,6 @@ void passwd(User &user, string oldPassword, string newPassword);
 string getIp(User &user);
 
 void transmit(User &user, string message) {
-    cout << "entrei aqui" << endl;
-    cout << user.protocol << endl;
-    cout << user.socket << endl;
-    cout << ntohs(user.address.sin_port) << endl;
-    cout << user.address.sin_addr.s_addr << endl;
-
     if (user.protocol == "tcp")
         write(user.socket, message.data(), message.size());
     else if (user.protocol == "udp") {
@@ -28,9 +22,6 @@ void transmit(User &user, string message) {
 }
 
 void handleRequest(char *buff, User &user, list<User> &users) {
-    cout << buff << endl;
-    cout << ntohs(user.address.sin_port) << endl;
-
     istringstream iss(buff);
     string type;
 
@@ -43,16 +34,19 @@ void handleRequest(char *buff, User &user, list<User> &users) {
     else if (type == "security") {
         string method;
         iss >> method;
-
-        if (method == "heartbeat") {
-            string port = to_string(8081);
-            string message = "security heartbeat-ok " + port;
-            transmit(user, message);
-        } else {
+        
+        if (method == "heartbeat-ok") {
+            cout << "heartbeat ok was received" << endl;
+            user.isAlive = true;
+        }
+        
+        else {
             cout << "Invalid method" << endl;
         }
 
-    } else if (type == "in-game") {
+    } 
+    
+    else if (type == "in-game") {
         if (!user.isPlaying) return;
 
         string method;
@@ -60,14 +54,16 @@ void handleRequest(char *buff, User &user, list<User> &users) {
 
         if (method == "gameover") {
             string message = "in-game gameover-ok";
-            user.isPlaying = false;
             transmit(user, message);
-
-        } else if (method == "endgame") {
+        }
+        
+        else if (method == "endgame") {
             string message = "in-game endgame-ok";
             transmit(user, message);
-
-        } else if (method == "points") {
+            user.isPlaying = false;
+        }
+        
+        else if (method == "points") {
             string points;
             iss >> points;
 
@@ -100,12 +96,15 @@ void handleRequest(char *buff, User &user, list<User> &users) {
 
             string message = "in-game points-ok";
             transmit(user, message);
-
-        } else {
+        } 
+        
+        else {
             cout << "Invalid method" << endl;
         }
 
-    } else {
+    } 
+    
+    else {
         cout << "Invalid type" << endl;
         string message = "Invalid type";
         transmit(user, message);
@@ -121,8 +120,6 @@ void authType(User &user, list<User> &users, istringstream &iss) {
         signin(user);
 
     } else if (method == "login") {
-        cout << "to em login" << endl;
-
         iss >> user.username >> user.password;
 
         login(user, users);
@@ -184,7 +181,9 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
 
         transmit(user, message);
 
-    } else if (method == "gamestart") {
+    } 
+    
+    else if (method == "gamestart") {
         string port;
         iss >> port;
 
@@ -198,12 +197,13 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
 
         report(level, event, details);
 
-    } else if (method == "challenge") {
+    } 
+    
+    else if (method == "challenge") {
         string opponent;
         iss >> opponent;
 
         bool found = false;
-        int i;
 
         list<User>::iterator it;
 
@@ -235,7 +235,9 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
 
         report(level, event, details);
 
-    } else if (method == "logout") {
+    } 
+    
+    else if (method == "logout") {
         if (!user.isLogged || user.isPlaying) {
             string message = "connection logout-nok";
             transmit(user, message);
@@ -249,7 +251,9 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
         string message = "connection logout-ok";
         transmit(user, message);
     
-    } else if (method == "list") {
+    } 
+    
+    else if (method == "list") {
         if (!user.isLogged) {
             string message = "connection list-nok";
             transmit(user, message);
@@ -264,12 +268,15 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
             if (u.isLogged) {
                 loggedUsers++;
                 usersList += " " + u.username;
+                if (u.isPlaying) usersList += "(playing)";
             }
         }
         message += to_string(loggedUsers) + usersList;
         transmit(user, message);
 
-    } else if (method == "leaderboard") {
+    } 
+    
+    else if (method == "leaderboard") {
         
         ifstream usersFile("users.txt");
         string line;
@@ -297,12 +304,12 @@ void connectionType(User &user, list<User> &users, istringstream &iss) {
 
         message += usersList;
         transmit(user, message);
-
-    } else {
+    }
+    
+    else {
         cout << "Invalid method" << endl;
     }
 }
-
 
 void passwd(User &user, string oldPassword, string newPassword) {
     ifstream usersFile("users.txt");

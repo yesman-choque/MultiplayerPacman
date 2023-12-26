@@ -1,5 +1,5 @@
 CXX := g++
-CFLAGS := -Wall -Wextra
+CFLAGS := -std=c++17 -Wall -Wextra -pthread
 
 SRCDIR := src
 INCDIR := interfaces

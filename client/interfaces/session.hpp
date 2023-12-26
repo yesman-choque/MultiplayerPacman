@@ -3,6 +3,8 @@
 #include <string>
 #include <netinet/in.h>
 #include <vector>
+#include <list>
+#include <chrono>
 
 using namespace std;
 
@@ -29,9 +31,19 @@ struct Match {
     bool hasOpponent;
     bool isHost;
 
+    chrono::high_resolution_clock::time_point start;
+    list<double> delays;
+
     Pacman pacman;
     Ghost remoteGhost;
     Ghost botGhost;
+    list<pair<int, int>> pacdots;
+
+    Match() {
+        delays.push_front(0);
+        delays.push_front(0);
+        delays.push_front(0);
+    }
 };
 
 struct Session {
@@ -40,10 +52,17 @@ struct Session {
 
     bool isLogged;
     bool isPlaying;
+    bool hasExited;
 
     string protocol;
     int serverSocket;
     struct sockaddr_in serverAddress;
 
     Match match;
+
+    Session() {
+        this->isLogged = false;
+        this->isPlaying = false;
+        this->hasExited = false;
+    }
 };

@@ -11,18 +11,9 @@
 void clientConnection(Session &session);
 void waitOpponent(int connfd, int listenfd, Session &session);
 void inGameMethod(Session &session, istringstream &iss);
-void receiveGameData(Session &session);
 
 void transmitP2P(Session &session, string message) {
     write(session.match.connfd, message.data(), message.size());
-}
-
-string receiveP2P(Session &session) {
-    vector<char> buff(1000, 0);
-    int n = read(session.match.connfd, buff.data(), buff.size());
-    string message(buff.begin(), buff.begin() + n);
-
-    return message;
 }
 
 void initializeGame(Session &session) {
@@ -87,13 +78,26 @@ void joinGame(Session &session, string ip, string port) {
     cout << "TCP Connection Open" << endl;
 
     createMatrix(session);
-    receiveGameData(session);
-
-    thread gameLoopThread(gameLoopGhost, ref(session));
-    gameLoopThread.detach();
+    
+    string message = "in-game data";
+    transmitP2P(session, message);
 
     thread clientConnectionThread(clientConnection, ref(session));
     clientConnectionThread.detach();
+
+    thread gameLoopThread(gameLoopGhost, ref(session));
+    gameLoopThread.detach();
+}
+
+void delay(Session &session) {
+    while (true) {
+        this_thread::sleep_for(chrono::seconds(10));
+        if (session.match.hasOpponent) {
+            string message = "in-game delay";
+            transmitP2P(session, message);
+            session.match.start = chrono::high_resolution_clock::now();
+        }
+    }
 }
 
 void waitOpponent(int connfd, int listenfd, Session &session) {
@@ -102,40 +106,38 @@ void waitOpponent(int connfd, int listenfd, Session &session) {
 
     while (session.isPlaying) {
         connfd = accept(listenfd, (struct sockaddr *)&clientAddr, &clientAddrLen);
-        cout << "TCP Connection Open" << endl;
-
         session.match.connfd = connfd;
         session.match.hasOpponent = true;
 
         thread clientConnectionThread(clientConnection, ref(session));
         clientConnectionThread.detach();
     }
+
+    close(session.match.connfd);
+    close(session.match.listenfd);
 }
 
 void clientConnection(Session &session) {
     int connfd = session.match.connfd;
     int n;
-    char buff[1000];
-    memset(buff, 0, 1000);
+    vector<char> buff(1000, 0);
 
-    while ((n = read(connfd, buff, 1000)) > 0) {
+    thread delayThread(delay, ref(session));
+    delayThread.detach();
+
+    while ((n = read(connfd, buff.data(), 1000)) > 0) {
         buff[n] = 0;
 
-        string message(buff);
-        
-        //cout << message << endl;
-
-        istringstream iss(buff);
+        string message(buff.data());
+        istringstream iss(message);
         
         string type;
         iss >> type;
 
         if (type == "in-game") inGameMethod(session, iss);
 
-        memset(buff, 0, 1000);
+        buff.assign(buff.size(), 0);
     }
-
-    cout << "Connection closed" << endl;
     session.match.hasOpponent = false;
 }
 
@@ -146,42 +148,96 @@ void inGameMethod(Session &session, istringstream &iss) {
 
     if (method == "delay") {
         string message = "in-game delay-ok";
-        write(connfd, message.data(), message.size());
+        transmitP2P(session, message);
+    }
 
-    } else if (method == "endgame") {
+    if (method == "delay-ok") {
+        auto stop = chrono::high_resolution_clock::now();
+        auto duration = chrono::duration_cast<chrono::nanoseconds>(stop - session.match.start);
+        double delay = duration.count() / (double)1e6;
+        //cout << "Delay: " << delay << "ms" << endl;
+
+        session.match.delays.pop_back();
+        session.match.delays.push_front(delay);
+    }
     
+    else if (method == "endgame") {
         string message = "in-game endgame-ok";
         write(connfd, message.data(), message.size());
 
-    } else if (method == "endgame-ok") {
+        if (!session.match.isHost) {
+            session.isPlaying = false;
+            close(connfd);
+
+            message = "in-game endgame";
+            transmit(session, message);
+        }
+    }
+    
+    else if (method == "endgame-ok") {
         if (close(connfd) < 0) {
             cout << "Error closing connection" << endl;
         } else {
             cout << "Connection closed" << endl; 
             session.isPlaying = false;
         }
-    } else if (method == "data") {
-        string arg;
-        iss >> arg;
+    }
+    
+    else if (method == "data") {
+        string message = "in-game data-ok";
 
-        if (arg == "pacman") {
-            string message = "in-game data pacman-ok";
-            message += " " + to_string(session.match.pacman.x);
-            message += " " + to_string(session.match.pacman.y);
-            transmitP2P(session, message);
-            
-        } else if (arg == "botGhost") {
-            string message = "in-game data botGhost-ok";
-            message += " " + to_string(session.match.botGhost.x);
-            message += " " + to_string(session.match.botGhost.y);
-            transmitP2P(session, message);
-        } else if (arg == "remoteGhost") {
-            string message = "in-game data remoteGhost-ok";
-            message += " " + to_string(session.match.remoteGhost.x);
-            message += " " + to_string(session.match.remoteGhost.y);
-            transmitP2P(session, message);
+        // Pacman data
+        message += " " + to_string(session.match.pacman.x);
+        message += " " + to_string(session.match.pacman.y);
+
+        // Bot Ghost data
+        message += " " + to_string(session.match.botGhost.x);
+        message += " " + to_string(session.match.botGhost.y);
+
+        // Remote Ghost data
+        message += " " + to_string(session.match.remoteGhost.x);
+        message += " " + to_string(session.match.remoteGhost.y);
+  
+        // Pacdots data
+        message += " " + to_string(session.match.pacdots.size());
+        for (auto [x, y] : session.match.pacdots) {
+            message += " " + to_string(x) + " " + to_string(y);
         }
-    } else if (method == "move") {
+
+        transmitP2P(session, message);
+    }
+
+    else if (method == "data-ok") {
+        string x, y;
+        iss >> x >> y;
+
+        session.match.pacman.x = stoi(x);
+        session.match.pacman.y = stoi(y);
+
+        iss >> x >> y;
+
+        session.match.botGhost.x = stoi(x);
+        session.match.botGhost.y = stoi(y);
+
+        iss >> x >> y;
+
+        session.match.remoteGhost.x = stoi(x);
+        session.match.remoteGhost.y = stoi(y);
+
+        string size;
+        iss >> size;
+
+        int n = stoi(size);
+
+        for (int i = 0; i < n; i++) {
+            string x, y;
+            iss >> x >> y;
+
+            session.match.pacdots.push_back({stoi(x), stoi(y)});
+        }
+    }
+    
+    else if (method == "move") {
         string arg;
         iss >> arg;
 
@@ -220,53 +276,29 @@ void inGameMethod(Session &session, istringstream &iss) {
             
             session.match.remoteGhost.hasMoved = true;
         }
-    } else if (method == "gameover") {
+    }
+    
+    else if (method == "gameover") {
         string message = "in-game gameover-ok";
         session.isPlaying = false;
         transmitP2P(session, message);
         close(connfd);
-    } else if (method == "gameover-ok") {
+
+        if (!session.match.isHost) {
+            message = "in-game endgame";
+            transmit(session, message);
+        }
+
+        cout << "Game Over" << endl;
+        cout << "Pac-Man> " << flush;
+    }
+    
+    else if (method == "gameover-ok") {
         if (close(connfd) < 0) {
             cout << "Error closing connection" << endl;
         } else {
-            cout << "Connection closed" << endl; 
+            cout << "Game Over" << endl;
             session.isPlaying = false;
         }
     }
-}
-
-
-void receiveGameData(Session &session) {
-    string message = "in-game data pacman";
-    transmitP2P(session, message);
-
-    string response = receiveP2P(session);
-    istringstream iss(response);
-
-    string type, method, arg, x, y;
-    iss >> type >> method >> arg >> x >> y;
-
-    cout << "x: " << x << endl;
-    cout << "y: " << y << endl;
-
-    session.match.pacman.x = stoi(x);
-    session.match.pacman.y = stoi(y);
-
-    message = "in-game data botGhost";
-    transmitP2P(session, message);
-    response = receiveP2P(session);
-    istringstream iss2(response);
-    iss2 >> type >> method >> arg >> x >> y;
-
-    session.match.botGhost.x = stoi(x);
-    session.match.botGhost.y = stoi(y);
-
-    message = "in-game data remoteGhost";
-    transmitP2P(session, message);
-    response = receiveP2P(session);
-    istringstream iss3(response);
-    iss3 >> type >> method >> arg >> x >> y;
-
-    session.match.remoteGhost.x = stoi(x);
-    session.match.remoteGhost.y = stoi(y);
 }

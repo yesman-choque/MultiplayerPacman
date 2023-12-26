@@ -18,6 +18,7 @@ struct User {
     bool isPlaying;
     bool isHost;
     bool isConnected;
+    bool isAlive;
 
     struct sockaddr_in address;
     int socket;
@@ -31,6 +32,7 @@ struct User {
         this->isPlaying = false;
         this->isHost = false;
         this->isConnected = false;
+        this->isAlive = true;
         
         this->socket = socket;
         this->protocol = protocol;

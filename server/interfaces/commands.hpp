@@ -10,3 +10,4 @@ void signin(User &user);
 void login(User &user, list<User> &users);
 void transmit(User &user, string message);
 void report(string level, string event, string details);
+string getIp(User &user);
