@@ -28,7 +28,7 @@ Additionally, the server uses two text files to ensure data persistence:
 - log.txt: contains system information
 
 <div align="center">
-   <img src="#" alt="screenshot" height="300">
+   <img src="https://github.com/yesmanic/Multiplayer-Pacman/assets/62268626/8d8d50fb-f591-4d0f-a133-2c9365bd6bd7" alt="screenshot" height="300">
 </div>
 
 ### Built With
@@ -70,27 +70,31 @@ The following tests were conducted to verify the server's functionality. For eac
 (The tests were performed on localhost at port 8080)
 
 Test 1: User creation and login
-    $ Pac-Man> new user 123
-    $ Pac-Man> Success to signin
-    $ Pac-Man> enter user 123
-    $ Pac-Man> Success to login
+
+    Pac-Man> new user 123
+    Pac-Man> Success to signin
+    Pac-Man> enter user 123
+    Pac-Man> Success to login
 
 (For the tests below, it is necessary for the user to be logged in.)
 
 Test 2: Checking connected users
-    $ Pac-Man> list
-    $ Players online: 1
-    $ user
+
+    Pac-Man> list
+    Players online: 1
+    user
 
 Test 3: Ranking of top players
-    $ Pac-Man> leaders
-    $ Table of leaders:
-    $ user 0
+
+    Pac-Man> leaders
+    Table of leaders:
+    user 0
 
 Test 4: Start of the game
-    $ Pac-Man> start
+
+    Pac-Man> start
     (An arena is created in the terminal, and the game begins)
-    $ move right
+    move right
     (The player moves to the right)
 
 ## Contact
